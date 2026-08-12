@@ -12,17 +12,44 @@
 </head>
 <body>
   <div id="root"></div>
-  <script type="module" crossorigin src="https://bpds-app.vercel.app/assets/index-DxXcCKDq.js"></script>
   <script>
   (() => {
     const ICON = 'https://bpds-app.vercel.app/bpds-icon.svg';
-    const VIDEO_KEY = /(^|_|-)(video|videoUrl|video_url|media|mediaUrl|media_url|demoUrl|demo_url|url)($|_|-)/i;
+    const CACHE_KEY = '__bpds_remote_drill_data_v2';
+    const VIDEO_KEY = /video|media|demo/i;
     const VIDEO_URL = /https?:\/\/[^\s"'<>]+/ig;
-    const isVideoUrl = (u) => {
-      if (!u || typeof u !== 'string') return false;
-      const s = u.toLowerCase();
-      return /youtu\.be|youtube\.com/.test(s) || /\.(mp4|webm|mov|m4v|ogg)(\?|#|$)/i.test(s);
+    const isVideoUrl = (u) => typeof u === 'string' && (/youtu\.be|youtube\.com/i.test(u) || /\.(mp4|webm|mov|m4v|ogg)(\?|#|$)/i.test(u));
+
+    const remoteData = [];
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(CACHE_KEY) || '[]');
+      if (Array.isArray(saved)) remoteData.push(...saved);
+    } catch {}
+
+    const remember = (data) => {
+      if (!data || typeof data !== 'object') return;
+      try {
+        const text = JSON.stringify(data);
+        if (!/video|media|youtu|\.mp4|\.webm/i.test(text)) return;
+        remoteData.push(data);
+        if (remoteData.length > 30) remoteData.splice(0, remoteData.length - 30);
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify(remoteData));
+        setTimeout(patch, 0);
+      } catch {}
     };
+
+    // Capture Supabase/API drill responses before the bundled app consumes them.
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = async (...args) => {
+      const response = await nativeFetch(...args);
+      try {
+        const clone = response.clone();
+        const type = clone.headers.get('content-type') || '';
+        if (type.includes('json')) clone.json().then(remember).catch(() => {});
+      } catch {}
+      return response;
+    };
+
     const ytEmbed = (raw) => {
       try {
         const u = new URL(raw);
@@ -39,25 +66,28 @@
         return id ? `https://www.youtube.com/embed/${id}?rel=0&playsinline=1` : null;
       } catch { return null; }
     };
+
     const currentDrill = () => {
       const text = document.body?.innerText || '';
       const code = (text.match(/\b(?:WUP|BM|SBH|MBH|COD|SH|PASS|FIN|DEF|SSG|ATH|PLY)-[A-Z0-9-]+\b/i) || [])[0] || '';
       const headings = [...document.querySelectorAll('h1,h2,h3')].map(e => (e.textContent || '').trim()).filter(Boolean);
       return { code: code.toUpperCase(), name: headings.find(t => !/practice|training|bpds/i.test(t)) || '' };
     };
+
     const findUrlInObject = (node, drill, seen = new WeakSet()) => {
-      if (!node || typeof node !== 'object') return null;
-      if (seen.has(node)) return null;
+      if (!node || typeof node !== 'object' || seen.has(node)) return null;
       seen.add(node);
-      const ownText = JSON.stringify(node).toLowerCase();
-      const matches = (drill.code && ownText.includes(drill.code.toLowerCase())) || (drill.name && ownText.includes(drill.name.toLowerCase()));
+      let ownText = '';
+      try { ownText = JSON.stringify(node); } catch { return null; }
+      const low = ownText.toLowerCase();
+      const matches = (drill.code && low.includes(drill.code.toLowerCase())) || (drill.name && low.includes(drill.name.toLowerCase()));
       if (matches) {
-        for (const [k,v] of Object.entries(node)) {
+        for (const [k, v] of Object.entries(node)) {
           if (typeof v === 'string' && VIDEO_KEY.test(k) && isVideoUrl(v)) return v;
         }
         const urls = ownText.match(VIDEO_URL) || [];
-        const good = urls.find(isVideoUrl);
-        if (good) return good.replace(/\\u0026/g, '&').replace(/\\\//g, '/');
+        const hit = urls.find(isVideoUrl);
+        if (hit) return hit.replace(/\\u0026/g, '&').replace(/\\\//g, '/');
       }
       for (const v of Object.values(node)) {
         if (v && typeof v === 'object') {
@@ -67,42 +97,40 @@
       }
       return null;
     };
+
     const findStoredVideo = (drill) => {
+      for (let i = remoteData.length - 1; i >= 0; i--) {
+        const hit = findUrlInObject(remoteData[i], drill);
+        if (hit) return hit;
+      }
       for (const store of [localStorage, sessionStorage]) {
         for (let i = 0; i < store.length; i++) {
-          const k = store.key(i);
-          const raw = store.getItem(k) || '';
+          const raw = store.getItem(store.key(i)) || '';
           try {
-            const parsed = JSON.parse(raw);
-            const hit = findUrlInObject(parsed, drill);
+            const hit = findUrlInObject(JSON.parse(raw), drill);
             if (hit) return hit;
-          } catch {
-            if (((drill.code && raw.toLowerCase().includes(drill.code.toLowerCase())) || (drill.name && raw.toLowerCase().includes(drill.name.toLowerCase())))) {
-              const urls = raw.match(VIDEO_URL) || [];
-              const hit = urls.find(isVideoUrl);
-              if (hit) return hit;
-            }
-          }
+          } catch {}
         }
       }
       return null;
     };
+
     const findVideoBox = () => {
       const boxes = [...document.querySelectorAll('div,section')].filter(el => {
         if (el.querySelector('video,iframe')) return false;
         const r = el.getBoundingClientRect();
-        if (r.width < 320 || r.height < 160 || r.height > 700) return false;
+        if (r.width < 280 || r.height < 140 || r.height > 720) return false;
         const txt = (el.textContent || '').trim();
-        const hasPlay = /^(▶|►|▷)?$/.test(txt) || txt === '';
-        return hasPlay;
+        return /^(▶|►|▷)?$/.test(txt) || txt === '';
       });
       return boxes.sort((a,b) => {
         const ar = a.getBoundingClientRect(), br = b.getBoundingClientRect();
-        const as = Math.abs(ar.width/ar.height - 16/9) + (ar.top < 100 ? 10 : 0);
-        const bs = Math.abs(br.width/br.height - 16/9) + (br.top < 100 ? 10 : 0);
+        const as = Math.abs(ar.width/ar.height - 16/9) + (ar.top < 90 ? 10 : 0);
+        const bs = Math.abs(br.width/br.height - 16/9) + (br.top < 90 ? 10 : 0);
         return as - bs;
       })[0] || null;
     };
+
     const mountVideo = (box, url, title) => {
       if (!box || !url || box.dataset.bpdsVideoMounted === url) return;
       const embed = ytEmbed(url);
@@ -114,15 +142,13 @@
         media.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
         media.allowFullscreen = true;
       } else {
-        media.src = url;
-        media.controls = true;
-        media.playsInline = true;
-        media.preload = 'metadata';
+        media.src = url; media.controls = true; media.playsInline = true; media.preload = 'metadata';
       }
       box.replaceChildren(media);
       box.dataset.bpdsVideoMounted = url;
     };
-    const patch = () => {
+
+    function patch() {
       document.querySelectorAll('button,a').forEach(el => {
         if ((el.textContent || '').trim().toLowerCase() === 'view demo') el.remove();
       });
@@ -141,17 +167,17 @@
         const url = findStoredVideo(drill);
         if (url) mountVideo(findVideoBox(), url, drill.name);
       }
-    };
-    let last = location.href;
+    }
+
     new MutationObserver(() => {
-      if (location.href !== last) last = location.href;
       clearTimeout(window.__bpdsPatchTimer);
       window.__bpdsPatchTimer = setTimeout(patch, 80);
     }).observe(document.documentElement, { childList:true, subtree:true });
     window.addEventListener('DOMContentLoaded', patch);
     window.addEventListener('storage', patch);
-    setInterval(patch, 1200);
+    setInterval(patch, 1000);
   })();
   </script>
+  <script type="module" crossorigin src="https://bpds-app.vercel.app/assets/index-DxXcCKDq.js"></script>
 </body>
 </html>
