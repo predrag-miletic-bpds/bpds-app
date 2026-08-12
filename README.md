@@ -2,4 +2,4 @@
 
 Basketball Player Development System.
 
-Source migration in progress.
+Production source migration: Practice Mode video fix + BPDS branding.
