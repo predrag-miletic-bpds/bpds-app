@@ -1,0 +1,1 @@
+Safe patch branch for the confirmed production BPDS UI. This branch must preserve the promoted production build and only apply: BPDS logo/icon, removal of View Demo, and training/practice video playback support.
