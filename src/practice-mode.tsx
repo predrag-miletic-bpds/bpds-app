@@ -1,0 +1,4 @@
+import React from 'react';
+import { directVideoUrl,youtubeEmbedUrl } from './video';
+const demo='https://www.w3schools.com/html/mov_bbb.mp4';
+export function PracticeMode(){const url=demo;const yt=youtubeEmbedUrl(url);const direct=directVideoUrl(url);return <main className="page"><header className="top"><div className="mark">BPDS</div><div><b>Basketball Player Development System</b><small>Practice Mode</small></div></header><section className="card"><div className="eyebrow">BALL HANDLING</div><h1>Pound Dribble</h1><p>Practice Mode video compatibility test</p><div className="video">{yt?<iframe src={yt} title="BPDS drill video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen/>:direct?<video src={direct} controls playsInline preload="metadata"/>:<div className="empty">No video attached</div>}</div><div className="status">✓ Practice Mode video renderer active</div></section></main>}
