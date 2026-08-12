@@ -14,6 +14,8 @@
     .bpds-premium-brand__mark{display:flex;align-items:flex-start;width:max-content;font-size:27px;font-weight:950;font-style:italic;letter-spacing:-1.8px;color:#fff;line-height:.9}
     .bpds-premium-brand__accent{display:inline-block;width:9px;height:12px;margin:1px 0 0 3px;background:#f45a1b;transform:skew(-8deg)}
     .bpds-premium-brand__sub{margin-top:7px;font-size:8px;font-weight:700;letter-spacing:2.1px;color:#9da2a8;white-space:nowrap}
+    .bpds-mini-video{overflow:hidden;background:#0a0d10!important}
+    .bpds-mini-video video{width:100%;height:100%;display:block;object-fit:cover;background:#0a0d10}
     @media(max-width:720px){.bpds-premium-brand{min-width:132px}.bpds-premium-brand__mark{font-size:24px}.bpds-premium-brand__sub{font-size:6.6px;letter-spacing:1.35px}}
   </style>
 </head>
@@ -21,251 +23,49 @@
   <div id="root"></div>
   <script>
   (() => {
-    const SUPABASE_URL = 'https://xnbpadoizmmggsvfcygc.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_c8x9vhv56LERv3m7EYme1w_Wx-JLclm';
-    const PROJECT_REF = 'xnbpadoizmmggsvfcygc';
-    const CACHE_KEY = '__bpds_remote_drill_data_v3';
-    const VIDEO_KEY = /video|media|demo/i;
-    const VIDEO_URL = /(?:https?:\/\/|supabase:\/\/)[^\s"'<>]+/ig;
-    const signedCache = new Map();
+    const SUPABASE_URL='https://xnbpadoizmmggsvfcygc.supabase.co';
+    const SUPABASE_KEY='sb_publishable_c8x9vhv56LERv3m7EYme1w_Wx-JLclm';
+    const PROJECT_REF='xnbpadoizmmggsvfcygc';
+    const CACHE_KEY='__bpds_remote_drill_data_v4';
+    const signedCache=new Map();
+    const remoteData=[];
+    const CODE_RE=/^(?:WUP|BM|SBH|MBH|COD|SH|PASS|FIN|DEF|SSG|ATH|PLY)-[A-Z0-9-]+$/i;
+    const isVideoUrl=u=>typeof u==='string'&&(/^supabase:\/\//i.test(u)||/youtu\.be|youtube\.com/i.test(u)||/\.(mp4|webm|mov|m4v|ogg)(\?|#|$)/i.test(u));
 
-    const isVideoUrl = (u) => typeof u === 'string' && (
-      /^supabase:\/\//i.test(u) || /youtu\.be|youtube\.com/i.test(u) || /\.(mp4|webm|mov|m4v|ogg)(\?|#|$)/i.test(u)
-    );
+    try{const x=JSON.parse(sessionStorage.getItem(CACHE_KEY)||'[]');if(Array.isArray(x))remoteData.push(...x)}catch{}
 
-    const remoteData = [];
-    try {
-      const saved = JSON.parse(sessionStorage.getItem(CACHE_KEY) || '[]');
-      if (Array.isArray(saved)) remoteData.push(...saved);
-    } catch {}
+    const remember=data=>{if(!data||typeof data!=='object')return;try{const text=JSON.stringify(data);if(!/video|media|youtu|supabase:\/\/|\.mp4|\.mov|\.webm/i.test(text))return;remoteData.push(data);if(remoteData.length>60)remoteData.splice(0,remoteData.length-60);sessionStorage.setItem(CACHE_KEY,JSON.stringify(remoteData));setTimeout(patch,0)}catch{}};
 
-    const remember = (data) => {
-      if (!data || typeof data !== 'object') return;
-      try {
-        const text = JSON.stringify(data);
-        if (!/video|media|youtu|supabase:\/\/|\.mp4|\.mov|\.webm/i.test(text)) return;
-        remoteData.push(data);
-        if (remoteData.length > 40) remoteData.splice(0, remoteData.length - 40);
-        sessionStorage.setItem(CACHE_KEY, JSON.stringify(remoteData));
-        setTimeout(patch, 0);
-      } catch {}
-    };
+    const nativeFetch=window.fetch.bind(window);
+    window.fetch=async(...args)=>{const response=await nativeFetch(...args);try{const clone=response.clone(),type=clone.headers.get('content-type')||'';if(type.includes('json'))clone.json().then(remember).catch(()=>{})}catch{}return response};
 
-    const nativeFetch = window.fetch.bind(window);
-    window.fetch = async (...args) => {
-      const response = await nativeFetch(...args);
-      try {
-        const clone = response.clone();
-        const type = clone.headers.get('content-type') || '';
-        if (type.includes('json')) clone.json().then(remember).catch(() => {});
-      } catch {}
-      return response;
-    };
+    const accessToken=()=>{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i)||'';if(k===`sb-${PROJECT_REF}-auth-token`||(k.includes(PROJECT_REF)&&k.includes('auth-token'))){try{const v=JSON.parse(localStorage.getItem(k)||'{}');const token=v?.access_token||v?.currentSession?.access_token||v?.session?.access_token;if(token)return token}catch{}}}return''};
 
-    const accessToken = () => {
-      const keys = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i) || '';
-        if (k === `sb-${PROJECT_REF}-auth-token` || (k.includes(PROJECT_REF) && k.includes('auth-token'))) keys.push(k);
-      }
-      for (const k of keys) {
-        try {
-          const v = JSON.parse(localStorage.getItem(k) || '{}');
-          const token = v?.access_token || v?.currentSession?.access_token || v?.session?.access_token;
-          if (token) return token;
-        } catch {}
-      }
-      return '';
-    };
+    const resolveVideoUrl=async raw=>{if(!raw||!/^supabase:\/\//i.test(raw))return raw;if(signedCache.has(raw))return signedCache.get(raw);const m=raw.match(/^supabase:\/\/([^/]+)\/(.+)$/i);if(!m)return'';const token=accessToken();if(!token)return'';const path=m[2].split('/').map(encodeURIComponent).join('/');try{const r=await nativeFetch(`${SUPABASE_URL}/storage/v1/object/sign/${encodeURIComponent(m[1])}/${path}`,{method:'POST',headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,Authorization:`Bearer ${token}`},body:JSON.stringify({expiresIn:3600})});if(!r.ok)return'';const j=await r.json();let signed=j?.signedURL||j?.signedUrl||'';if(signed&&signed.startsWith('/'))signed=`${SUPABASE_URL}/storage/v1${signed}`;if(signed)signedCache.set(raw,signed);return signed}catch{return''}};
 
-    const resolveVideoUrl = async (raw) => {
-      if (!raw || !/^supabase:\/\//i.test(raw)) return raw;
-      if (signedCache.has(raw)) return signedCache.get(raw);
-      const m = raw.match(/^supabase:\/\/([^/]+)\/(.+)$/i);
-      if (!m) return '';
-      const bucket = m[1], objectPath = m[2];
-      const token = accessToken();
-      if (!token) return '';
-      const encoded = objectPath.split('/').map(encodeURIComponent).join('/');
-      try {
-        const r = await nativeFetch(`${SUPABASE_URL}/storage/v1/object/sign/${encodeURIComponent(bucket)}/${encoded}`, {
-          method: 'POST',
-          headers: { 'Content-Type':'application/json', apikey:SUPABASE_KEY, Authorization:`Bearer ${token}` },
-          body: JSON.stringify({ expiresIn: 3600 })
-        });
-        if (!r.ok) return '';
-        const j = await r.json();
-        let signed = j?.signedURL || j?.signedUrl || '';
-        if (signed && signed.startsWith('/')) signed = `${SUPABASE_URL}/storage/v1${signed}`;
-        if (signed) signedCache.set(raw, signed);
-        return signed;
-      } catch { return ''; }
-    };
+    const findVideo=(node,code,seen=new WeakSet())=>{if(!node||typeof node!=='object'||seen.has(node))return null;seen.add(node);let text='';try{text=JSON.stringify(node)}catch{return null}if(code&&text.toLowerCase().includes(code.toLowerCase())){for(const[k,v]of Object.entries(node)){if(typeof v==='string'&&/video|media|demo/i.test(k)&&isVideoUrl(v))return v}const m=text.match(/(?:https?:\/\/|supabase:\/\/)[^\s\"'<>]+/ig)||[],hit=m.find(isVideoUrl);if(hit)return hit.replace(/\\u0026/g,'&').replace(/\\\//g,'/')}for(const v of Object.values(node)){if(v&&typeof v==='object'){const hit=findVideo(v,code,seen);if(hit)return hit}}return null};
 
-    const ytEmbed = (raw) => {
-      try {
-        const u = new URL(raw);
-        const host = u.hostname.replace(/^www\./, '').toLowerCase();
-        let id = '';
-        if (host === 'youtu.be') id = u.pathname.split('/').filter(Boolean)[0] || '';
-        else if (host === 'youtube.com' || host === 'm.youtube.com') {
-          if (u.pathname === '/watch') id = u.searchParams.get('v') || '';
-          else {
-            const p = u.pathname.split('/').filter(Boolean);
-            if (['shorts','embed','live'].includes(p[0])) id = p[1] || '';
-          }
-        }
-        return id ? `https://www.youtube.com/embed/${id}?rel=0&playsinline=1` : null;
-      } catch { return null; }
-    };
+    const storedVideo=code=>{for(let i=remoteData.length-1;i>=0;i--){const hit=findVideo(remoteData[i],code);if(hit)return hit}for(const store of[localStorage,sessionStorage]){for(let i=0;i<store.length;i++){const raw=store.getItem(store.key(i))||'';try{const hit=findVideo(JSON.parse(raw),code);if(hit)return hit}catch{}}}return null};
 
-    const findUrlInObject = (node, drill, seen = new WeakSet()) => {
-      if (!node || typeof node !== 'object' || seen.has(node)) return null;
-      seen.add(node);
-      let ownText = '';
-      try { ownText = JSON.stringify(node); } catch { return null; }
-      const low = ownText.toLowerCase();
-      const matches = (drill.code && low.includes(drill.code.toLowerCase())) || (drill.name && low.includes(drill.name.toLowerCase()));
-      if (matches) {
-        for (const [k, v] of Object.entries(node)) {
-          if (typeof v === 'string' && VIDEO_KEY.test(k) && isVideoUrl(v)) return v;
-        }
-        const urls = ownText.match(VIDEO_URL) || [];
-        const hit = urls.find(isVideoUrl);
-        if (hit) return hit.replace(/\\u0026/g, '&').replace(/\\\//g, '/');
-      }
-      for (const v of Object.values(node)) {
-        if (v && typeof v === 'object') {
-          const hit = findUrlInObject(v, drill, seen);
-          if (hit) return hit;
-        }
-      }
-      return null;
-    };
+    const ytEmbed=raw=>{try{const u=new URL(raw),host=u.hostname.replace(/^www\./,'').toLowerCase();let id='';if(host==='youtu.be')id=u.pathname.split('/').filter(Boolean)[0]||'';else if(host==='youtube.com'||host==='m.youtube.com'){if(u.pathname==='/watch')id=u.searchParams.get('v')||'';else{const p=u.pathname.split('/').filter(Boolean);if(['shorts','embed','live'].includes(p[0]))id=p[1]||''}}return id?`https://www.youtube.com/embed/${id}?rel=0&playsinline=1`:null}catch{return null}};
 
-    const findStoredVideo = (drill) => {
-      for (let i = remoteData.length - 1; i >= 0; i--) {
-        const hit = findUrlInObject(remoteData[i], drill);
-        if (hit) return hit;
-      }
-      for (const store of [localStorage, sessionStorage]) {
-        for (let i = 0; i < store.length; i++) {
-          const raw = store.getItem(store.key(i)) || '';
-          try {
-            const hit = findUrlInObject(JSON.parse(raw), drill);
-            if (hit) return hit;
-          } catch {}
-        }
-      }
-      return null;
-    };
+    const currentCode=()=>((document.body?.innerText||'').match(/\b(?:WUP|BM|SBH|MBH|COD|SH|PASS|FIN|DEF|SSG|ATH|PLY)-[A-Z0-9-]+\b/i)||[])[0]?.toUpperCase()||'';
 
-    const currentDrill = () => {
-      const text = document.body?.innerText || '';
-      const code = (text.match(/\b(?:WUP|BM|SBH|MBH|COD|SH|PASS|FIN|DEF|SSG|ATH|PLY)-[A-Z0-9-]+\b/i) || [])[0] || '';
-      const headings = [...document.querySelectorAll('h1,h2,h3')].map(e => (e.textContent || '').trim()).filter(Boolean);
-      return { code: code.toUpperCase(), name: headings.find(t => !/practice|training|bpds/i.test(t)) || '' };
-    };
+    const findPracticeBox=()=>[...document.querySelectorAll('div,section')].filter(el=>{if(el.querySelector('video,iframe'))return false;const r=el.getBoundingClientRect();if(r.width<300||r.height<170||r.height>720)return false;const t=(el.textContent||'').trim();return /^(▶|►|▷)?$/.test(t)||t===''}).sort((a,b)=>{const x=a.getBoundingClientRect(),y=b.getBoundingClientRect();return Math.abs(x.width/x.height-16/9)-Math.abs(y.width/y.height-16/9)})[0]||null;
 
-    const findVideoBox = (root=document) => {
-      const boxes = [...root.querySelectorAll('div,section')].filter(el => {
-        if (el.querySelector('video,iframe')) return false;
-        const r = el.getBoundingClientRect();
-        if (r.width < 80 || r.height < 55 || r.height > 720) return false;
-        const txt = (el.textContent || '').trim();
-        return /^(▶|►|▷)?$/.test(txt) || txt === '';
-      });
-      return boxes.sort((a,b) => {
-        const ar = a.getBoundingClientRect(), br = b.getBoundingClientRect();
-        const as = Math.abs(ar.width/ar.height - 16/9) + (ar.top < 70 ? 10 : 0);
-        const bs = Math.abs(br.width/br.height - 16/9) + (br.top < 70 ? 10 : 0);
-        return as - bs;
-      })[0] || null;
-    };
+    const findThumbnailBox=(card,codeEl)=>{const cr=card.getBoundingClientRect(),er=codeEl.getBoundingClientRect();const candidates=[...card.querySelectorAll('div,section,button')].filter(el=>{if(el===card||el.contains(codeEl)||el.querySelector('video,iframe'))return false;const r=el.getBoundingClientRect();if(r.width<70||r.width>150||r.height<50||r.height>120)return false;if(r.left>er.left-8)return false;if(Math.abs((r.top+r.bottom)/2-(er.top+er.bottom)/2)>80)return false;const t=(el.textContent||'').trim();return t===''||/^(▶|►|▷)$/.test(t)}).sort((a,b)=>{const x=a.getBoundingClientRect(),y=b.getBoundingClientRect();const xs=Math.abs(x.width/x.height-1.45)+Math.abs(x.left-cr.left-10)/100,ys=Math.abs(y.width/y.height-1.45)+Math.abs(y.left-cr.left-10)/100;return xs-ys});return candidates[0]||null};
 
-    const mountVideo = async (box, raw, title, compact=false) => {
-      if (!box || !raw || box.dataset.bpdsVideoMounted === raw || box.dataset.bpdsVideoLoading === raw) return;
-      box.dataset.bpdsVideoLoading = raw;
-      const url = await resolveVideoUrl(raw);
-      delete box.dataset.bpdsVideoLoading;
-      if (!url || !box.isConnected) return;
-      const embed = ytEmbed(url);
-      const media = embed ? document.createElement('iframe') : document.createElement('video');
-      media.style.cssText = 'width:100%;height:100%;display:block;border:0;background:#0a0d10;object-fit:cover;border-radius:inherit;';
-      if (embed) {
-        media.src = embed;
-        media.title = `${title || 'BPDS drill'} demonstration video`;
-        media.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
-        media.allowFullscreen = true;
-      } else {
-        media.src = url;
-        media.playsInline = true;
-        media.preload = compact ? 'metadata' : 'auto';
-        media.muted = compact;
-        media.controls = !compact;
-      }
-      box.replaceChildren(media);
-      box.dataset.bpdsVideoMounted = raw;
-    };
+    const mountVideo=async(box,raw,title,compact=false)=>{if(!box||!raw||box.dataset.bpdsVideoMounted===raw||box.dataset.bpdsVideoLoading===raw)return;box.dataset.bpdsVideoLoading=raw;const url=await resolveVideoUrl(raw);delete box.dataset.bpdsVideoLoading;if(!url||!box.isConnected)return;const embed=ytEmbed(url);const media=document.createElement(embed?'iframe':'video');media.style.cssText='width:100%;height:100%;display:block;border:0;background:#0a0d10;object-fit:cover;border-radius:inherit';if(embed){media.src=embed;media.title=title||'BPDS drill video';media.allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';media.allowFullscreen=true}else{media.src=url;media.playsInline=true;media.muted=compact;media.controls=!compact;media.preload='auto';if(compact){media.addEventListener('loadedmetadata',()=>{try{media.currentTime=Math.min(.12,Math.max(0,(media.duration||1)/20))}catch{}},{once:true});media.addEventListener('loadeddata',()=>{try{media.pause()}catch{}},{once:true})}}if(compact)box.classList.add('bpds-mini-video');box.replaceChildren(media);box.dataset.bpdsVideoMounted=raw};
 
-    const patchPracticeVideo = () => {
-      const text = document.body?.innerText || '';
-      if (!(location.pathname.toLowerCase().includes('practice') || /block \d+ of \d+/i.test(text))) return;
-      const drill = currentDrill();
-      const raw = findStoredVideo(drill);
-      if (raw) mountVideo(findVideoBox(), raw, drill.name, false);
-    };
+    const patchPractice=()=>{const text=document.body?.innerText||'';if(!(location.pathname.toLowerCase().includes('practice')||/block \d+ of \d+/i.test(text)))return;const code=currentCode(),raw=storedVideo(code);if(raw)mountVideo(findPracticeBox(),raw,code,false)};
 
-    const patchDrillCards = () => {
-      const codeEls = [...document.querySelectorAll('body *')].filter(el => {
-        if (el.children.length) return false;
-        const t = (el.textContent || '').trim();
-        return /^(?:WUP|BM|SBH|MBH|COD|SH|PASS|FIN|DEF|SSG|ATH|PLY)-[A-Z0-9-]+$/i.test(t);
-      });
-      for (const codeEl of codeEls) {
-        const code = (codeEl.textContent || '').trim().toUpperCase();
-        let card = codeEl.parentElement;
-        for (let i=0; i<6 && card; i++, card=card.parentElement) {
-          const r = card.getBoundingClientRect();
-          if (r.width > 250 && r.height > 90 && r.height < 700) {
-            const raw = findStoredVideo({code, name:''});
-            if (!raw) break;
-            const box = findVideoBox(card);
-            if (box) mountVideo(box, raw, code, true);
-            break;
-          }
-        }
-      }
-    };
+    const patchCards=()=>{const codeEls=[...document.querySelectorAll('body *')].filter(el=>!el.children.length&&CODE_RE.test((el.textContent||'').trim()));for(const codeEl of codeEls){const code=(codeEl.textContent||'').trim().toUpperCase(),raw=storedVideo(code);if(!raw)continue;let card=codeEl.parentElement;for(let i=0;i<7&&card;i++,card=card.parentElement){const r=card.getBoundingClientRect();if(r.width>400&&r.height>110&&r.height<420){const box=findThumbnailBox(card,codeEl);if(box)mountVideo(box,raw,code,true);break}}}};
 
-    const patchBrand = () => {
-      const candidates = [...document.querySelectorAll('header a,header div')].filter(el => {
-        const t = (el.textContent || '').replace(/\s+/g,' ').trim();
-        return /\bBPDS\b/i.test(t) && /PLAYER DEVELOPMENT/i.test(t) && t.length < 80;
-      }).sort((a,b) => a.getBoundingClientRect().width - b.getBoundingClientRect().width);
-      const brand = candidates[0];
-      if (!brand || brand.dataset.bpdsPremiumBrand) return;
-      brand.dataset.bpdsPremiumBrand = '1';
-      brand.classList.add('bpds-premium-brand');
-      brand.innerHTML = '<span class="bpds-premium-brand__mark">BPDS<span class="bpds-premium-brand__accent"></span></span><span class="bpds-premium-brand__sub">BASKETBALL PLAYER DEVELOPMENT SYSTEM</span>';
-    };
+    const patchBrand=()=>{const candidates=[...document.querySelectorAll('header a,header div')].filter(el=>{const t=(el.textContent||'').replace(/\s+/g,' ').trim();return /\bBPDS\b/i.test(t)&&/PLAYER DEVELOPMENT/i.test(t)&&t.length<80}).sort((a,b)=>a.getBoundingClientRect().width-b.getBoundingClientRect().width);const brand=candidates[0];if(!brand||brand.dataset.bpdsPremiumBrand)return;brand.dataset.bpdsPremiumBrand='1';brand.classList.add('bpds-premium-brand');brand.innerHTML='<span class="bpds-premium-brand__mark">BPDS<span class="bpds-premium-brand__accent"></span></span><span class="bpds-premium-brand__sub">BASKETBALL PLAYER DEVELOPMENT SYSTEM</span>'};
 
-    function patch() {
-      document.querySelectorAll('button,a').forEach(el => {
-        if ((el.textContent || '').trim().toLowerCase() === 'view demo') el.remove();
-      });
-      patchBrand();
-      patchPracticeVideo();
-      patchDrillCards();
-    }
-
-    new MutationObserver(() => {
-      clearTimeout(window.__bpdsPatchTimer);
-      window.__bpdsPatchTimer = setTimeout(patch, 100);
-    }).observe(document.documentElement, { childList:true, subtree:true });
-    window.addEventListener('DOMContentLoaded', patch);
-    window.addEventListener('storage', patch);
-    setInterval(patch, 1200);
+    function patch(){document.querySelectorAll('button,a').forEach(el=>{if((el.textContent||'').trim().toLowerCase()==='view demo')el.remove()});patchBrand();patchPractice();patchCards()}
+    new MutationObserver(()=>{clearTimeout(window.__bpdsPatchTimer);window.__bpdsPatchTimer=setTimeout(patch,120)}).observe(document.documentElement,{childList:true,subtree:true});
+    addEventListener('DOMContentLoaded',patch);addEventListener('storage',patch);setInterval(patch,1200);
   })();
   </script>
   <script type="module" crossorigin src="https://bpds-app.vercel.app/assets/index-DxXcCKDq.js"></script>
