@@ -1,5 +1,3 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { fileURLToPath, URL } from 'node:url';
-const r=(p)=>fileURLToPath(new URL(p, import.meta.url));
-export default defineConfig({plugins:[react()],resolve:{alias:{'@predrag-miletic/bpds-methodology.drill-catalog':r('./src/methodology/drill-catalog.ts'),'@predrag-miletic/bpds-methodology.entities.methodology':r('./src/methodology/methodology.ts'),'@predrag-miletic/bpds-methodology.modules-catalog':r('./src/methodology/modules-catalog.ts'),'@predrag-miletic/bpds-methodology.practice-generator':r('./src/methodology/practice-generator.ts'),'@predrag-miletic/bpds-people.entities.people':r('./src/people/people.ts'),'@predrag-miletic/bpds-people.people-service':r('./src/people/people-service.ts'),'@predrag-miletic/bpds-practices.entities.practice':r('./src/practices/practice.ts'),'@predrag-miletic/bpds-practices.practice-service':r('./src/practices/practice-service.ts'),'@predrag-miletic/bpds-storage.entities.shared-types':r('./src/storage/shared-types.ts'),'@predrag-miletic/bpds-storage.repository':r('./src/storage/repository.ts'),'@predrag-miletic/bpds-storage.storage':r('./src/storage/storage.ts')}}});
+export default defineConfig({plugins:[react()]});
