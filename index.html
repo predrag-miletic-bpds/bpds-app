@@ -9,16 +9,29 @@
   <link rel="icon" type="image/svg+xml" href="https://bpds-app.vercel.app/bpds-icon.svg" />
   <link rel="stylesheet" crossorigin href="https://bpds-app.vercel.app/assets/index-D7cjH5pi.css" />
   <title>BPDS — Basketball Player Development System</title>
+  <style>
+    .bpds-premium-brand{display:flex;flex-direction:column;justify-content:center;line-height:1;text-decoration:none;min-width:180px}
+    .bpds-premium-brand__mark{display:flex;align-items:flex-start;width:max-content;font-size:27px;font-weight:950;font-style:italic;letter-spacing:-1.8px;color:#fff;line-height:.9}
+    .bpds-premium-brand__accent{display:inline-block;width:9px;height:12px;margin:1px 0 0 3px;background:#f45a1b;transform:skew(-8deg)}
+    .bpds-premium-brand__sub{margin-top:7px;font-size:8px;font-weight:700;letter-spacing:2.1px;color:#9da2a8;white-space:nowrap}
+    @media(max-width:720px){.bpds-premium-brand{min-width:132px}.bpds-premium-brand__mark{font-size:24px}.bpds-premium-brand__sub{font-size:6.6px;letter-spacing:1.35px}}
+  </style>
 </head>
 <body>
   <div id="root"></div>
   <script>
   (() => {
-    const ICON = 'https://bpds-app.vercel.app/bpds-icon.svg';
-    const CACHE_KEY = '__bpds_remote_drill_data_v2';
+    const SUPABASE_URL = 'https://xnbpadoizmmggsvfcygc.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_c8x9vhv56LERv3m7EYme1w_Wx-JLclm';
+    const PROJECT_REF = 'xnbpadoizmmggsvfcygc';
+    const CACHE_KEY = '__bpds_remote_drill_data_v3';
     const VIDEO_KEY = /video|media|demo/i;
-    const VIDEO_URL = /https?:\/\/[^\s"'<>]+/ig;
-    const isVideoUrl = (u) => typeof u === 'string' && (/youtu\.be|youtube\.com/i.test(u) || /\.(mp4|webm|mov|m4v|ogg)(\?|#|$)/i.test(u));
+    const VIDEO_URL = /(?:https?:\/\/|supabase:\/\/)[^\s"'<>]+/ig;
+    const signedCache = new Map();
+
+    const isVideoUrl = (u) => typeof u === 'string' && (
+      /^supabase:\/\//i.test(u) || /youtu\.be|youtube\.com/i.test(u) || /\.(mp4|webm|mov|m4v|ogg)(\?|#|$)/i.test(u)
+    );
 
     const remoteData = [];
     try {
@@ -30,15 +43,14 @@
       if (!data || typeof data !== 'object') return;
       try {
         const text = JSON.stringify(data);
-        if (!/video|media|youtu|\.mp4|\.webm/i.test(text)) return;
+        if (!/video|media|youtu|supabase:\/\/|\.mp4|\.mov|\.webm/i.test(text)) return;
         remoteData.push(data);
-        if (remoteData.length > 30) remoteData.splice(0, remoteData.length - 30);
+        if (remoteData.length > 40) remoteData.splice(0, remoteData.length - 40);
         sessionStorage.setItem(CACHE_KEY, JSON.stringify(remoteData));
         setTimeout(patch, 0);
       } catch {}
     };
 
-    // Capture Supabase/API drill responses before the bundled app consumes them.
     const nativeFetch = window.fetch.bind(window);
     window.fetch = async (...args) => {
       const response = await nativeFetch(...args);
@@ -48,6 +60,46 @@
         if (type.includes('json')) clone.json().then(remember).catch(() => {});
       } catch {}
       return response;
+    };
+
+    const accessToken = () => {
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i) || '';
+        if (k === `sb-${PROJECT_REF}-auth-token` || (k.includes(PROJECT_REF) && k.includes('auth-token'))) keys.push(k);
+      }
+      for (const k of keys) {
+        try {
+          const v = JSON.parse(localStorage.getItem(k) || '{}');
+          const token = v?.access_token || v?.currentSession?.access_token || v?.session?.access_token;
+          if (token) return token;
+        } catch {}
+      }
+      return '';
+    };
+
+    const resolveVideoUrl = async (raw) => {
+      if (!raw || !/^supabase:\/\//i.test(raw)) return raw;
+      if (signedCache.has(raw)) return signedCache.get(raw);
+      const m = raw.match(/^supabase:\/\/([^/]+)\/(.+)$/i);
+      if (!m) return '';
+      const bucket = m[1], objectPath = m[2];
+      const token = accessToken();
+      if (!token) return '';
+      const encoded = objectPath.split('/').map(encodeURIComponent).join('/');
+      try {
+        const r = await nativeFetch(`${SUPABASE_URL}/storage/v1/object/sign/${encodeURIComponent(bucket)}/${encoded}`, {
+          method: 'POST',
+          headers: { 'Content-Type':'application/json', apikey:SUPABASE_KEY, Authorization:`Bearer ${token}` },
+          body: JSON.stringify({ expiresIn: 3600 })
+        });
+        if (!r.ok) return '';
+        const j = await r.json();
+        let signed = j?.signedURL || j?.signedUrl || '';
+        if (signed && signed.startsWith('/')) signed = `${SUPABASE_URL}/storage/v1${signed}`;
+        if (signed) signedCache.set(raw, signed);
+        return signed;
+      } catch { return ''; }
     };
 
     const ytEmbed = (raw) => {
@@ -65,13 +117,6 @@
         }
         return id ? `https://www.youtube.com/embed/${id}?rel=0&playsinline=1` : null;
       } catch { return null; }
-    };
-
-    const currentDrill = () => {
-      const text = document.body?.innerText || '';
-      const code = (text.match(/\b(?:WUP|BM|SBH|MBH|COD|SH|PASS|FIN|DEF|SSG|ATH|PLY)-[A-Z0-9-]+\b/i) || [])[0] || '';
-      const headings = [...document.querySelectorAll('h1,h2,h3')].map(e => (e.textContent || '').trim()).filter(Boolean);
-      return { code: code.toUpperCase(), name: headings.find(t => !/practice|training|bpds/i.test(t)) || '' };
     };
 
     const findUrlInObject = (node, drill, seen = new WeakSet()) => {
@@ -115,67 +160,112 @@
       return null;
     };
 
-    const findVideoBox = () => {
-      const boxes = [...document.querySelectorAll('div,section')].filter(el => {
+    const currentDrill = () => {
+      const text = document.body?.innerText || '';
+      const code = (text.match(/\b(?:WUP|BM|SBH|MBH|COD|SH|PASS|FIN|DEF|SSG|ATH|PLY)-[A-Z0-9-]+\b/i) || [])[0] || '';
+      const headings = [...document.querySelectorAll('h1,h2,h3')].map(e => (e.textContent || '').trim()).filter(Boolean);
+      return { code: code.toUpperCase(), name: headings.find(t => !/practice|training|bpds/i.test(t)) || '' };
+    };
+
+    const findVideoBox = (root=document) => {
+      const boxes = [...root.querySelectorAll('div,section')].filter(el => {
         if (el.querySelector('video,iframe')) return false;
         const r = el.getBoundingClientRect();
-        if (r.width < 280 || r.height < 140 || r.height > 720) return false;
+        if (r.width < 80 || r.height < 55 || r.height > 720) return false;
         const txt = (el.textContent || '').trim();
         return /^(▶|►|▷)?$/.test(txt) || txt === '';
       });
       return boxes.sort((a,b) => {
         const ar = a.getBoundingClientRect(), br = b.getBoundingClientRect();
-        const as = Math.abs(ar.width/ar.height - 16/9) + (ar.top < 90 ? 10 : 0);
-        const bs = Math.abs(br.width/br.height - 16/9) + (br.top < 90 ? 10 : 0);
+        const as = Math.abs(ar.width/ar.height - 16/9) + (ar.top < 70 ? 10 : 0);
+        const bs = Math.abs(br.width/br.height - 16/9) + (br.top < 70 ? 10 : 0);
         return as - bs;
       })[0] || null;
     };
 
-    const mountVideo = (box, url, title) => {
-      if (!box || !url || box.dataset.bpdsVideoMounted === url) return;
+    const mountVideo = async (box, raw, title, compact=false) => {
+      if (!box || !raw || box.dataset.bpdsVideoMounted === raw || box.dataset.bpdsVideoLoading === raw) return;
+      box.dataset.bpdsVideoLoading = raw;
+      const url = await resolveVideoUrl(raw);
+      delete box.dataset.bpdsVideoLoading;
+      if (!url || !box.isConnected) return;
       const embed = ytEmbed(url);
       const media = embed ? document.createElement('iframe') : document.createElement('video');
-      media.style.cssText = 'width:100%;height:100%;display:block;border:0;background:#000;';
+      media.style.cssText = 'width:100%;height:100%;display:block;border:0;background:#0a0d10;object-fit:cover;border-radius:inherit;';
       if (embed) {
         media.src = embed;
         media.title = `${title || 'BPDS drill'} demonstration video`;
         media.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
         media.allowFullscreen = true;
       } else {
-        media.src = url; media.controls = true; media.playsInline = true; media.preload = 'metadata';
+        media.src = url;
+        media.playsInline = true;
+        media.preload = compact ? 'metadata' : 'auto';
+        media.muted = compact;
+        media.controls = !compact;
       }
       box.replaceChildren(media);
-      box.dataset.bpdsVideoMounted = url;
+      box.dataset.bpdsVideoMounted = raw;
+    };
+
+    const patchPracticeVideo = () => {
+      const text = document.body?.innerText || '';
+      if (!(location.pathname.toLowerCase().includes('practice') || /block \d+ of \d+/i.test(text))) return;
+      const drill = currentDrill();
+      const raw = findStoredVideo(drill);
+      if (raw) mountVideo(findVideoBox(), raw, drill.name, false);
+    };
+
+    const patchDrillCards = () => {
+      const codeEls = [...document.querySelectorAll('body *')].filter(el => {
+        if (el.children.length) return false;
+        const t = (el.textContent || '').trim();
+        return /^(?:WUP|BM|SBH|MBH|COD|SH|PASS|FIN|DEF|SSG|ATH|PLY)-[A-Z0-9-]+$/i.test(t);
+      });
+      for (const codeEl of codeEls) {
+        const code = (codeEl.textContent || '').trim().toUpperCase();
+        let card = codeEl.parentElement;
+        for (let i=0; i<6 && card; i++, card=card.parentElement) {
+          const r = card.getBoundingClientRect();
+          if (r.width > 250 && r.height > 90 && r.height < 700) {
+            const raw = findStoredVideo({code, name:''});
+            if (!raw) break;
+            const box = findVideoBox(card);
+            if (box) mountVideo(box, raw, code, true);
+            break;
+          }
+        }
+      }
+    };
+
+    const patchBrand = () => {
+      const candidates = [...document.querySelectorAll('header a,header div')].filter(el => {
+        const t = (el.textContent || '').replace(/\s+/g,' ').trim();
+        return /\bBPDS\b/i.test(t) && /PLAYER DEVELOPMENT/i.test(t) && t.length < 80;
+      }).sort((a,b) => a.getBoundingClientRect().width - b.getBoundingClientRect().width);
+      const brand = candidates[0];
+      if (!brand || brand.dataset.bpdsPremiumBrand) return;
+      brand.dataset.bpdsPremiumBrand = '1';
+      brand.classList.add('bpds-premium-brand');
+      brand.innerHTML = '<span class="bpds-premium-brand__mark">BPDS<span class="bpds-premium-brand__accent"></span></span><span class="bpds-premium-brand__sub">BASKETBALL PLAYER DEVELOPMENT SYSTEM</span>';
     };
 
     function patch() {
       document.querySelectorAll('button,a').forEach(el => {
         if ((el.textContent || '').trim().toLowerCase() === 'view demo') el.remove();
       });
-      document.querySelectorAll('header *').forEach(el => {
-        if (el.children.length === 0 && (el.textContent || '').trim() === '🏀') {
-          el.textContent = '';
-          const img = document.createElement('img');
-          img.src = ICON; img.alt = 'BPDS'; img.width = 38; img.height = 38;
-          img.style.cssText = 'display:block;width:100%;height:100%;object-fit:cover;border-radius:10px';
-          el.appendChild(img);
-        }
-      });
-      const path = location.pathname.toLowerCase();
-      if (path.includes('practice') || /block \d+ of \d+/i.test(document.body?.innerText || '')) {
-        const drill = currentDrill();
-        const url = findStoredVideo(drill);
-        if (url) mountVideo(findVideoBox(), url, drill.name);
-      }
+      patchBrand();
+      patchPracticeVideo();
+      patchDrillCards();
     }
 
     new MutationObserver(() => {
       clearTimeout(window.__bpdsPatchTimer);
-      window.__bpdsPatchTimer = setTimeout(patch, 80);
+      window.__bpdsPatchTimer = setTimeout(patch, 100);
     }).observe(document.documentElement, { childList:true, subtree:true });
     window.addEventListener('DOMContentLoaded', patch);
     window.addEventListener('storage', patch);
-    setInterval(patch, 1000);
+    setInterval(patch, 1200);
   })();
   </script>
   <script type="module" crossorigin src="https://bpds-app.vercel.app/assets/index-DxXcCKDq.js"></script>
