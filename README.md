@@ -2,6 +2,6 @@
 
 Basketball Player Development System.
 
-Current standalone migration build: `2026.08.12-video-fix`.
+Standalone migration build: `2026.08.12-video-fix`.
 
-Includes a testable Practice Mode video renderer for YouTube watch links, youtu.be links, Shorts, and direct MP4/WebM/MOV sources, plus BPDS branding.
+Practice Mode video compatibility: YouTube watch URLs, youtu.be URLs, Shorts, and direct MP4/WebM/MOV sources. BPDS branding is included.
