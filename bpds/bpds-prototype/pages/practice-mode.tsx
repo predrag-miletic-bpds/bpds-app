@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getDrill } from '@predrag-miletic/bpds-methodology.drill-catalog';
 import { useStore } from '../store/store.js';
 import styles from './practice-mode.module.css';
+
+const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL ?? '');
+const SUPABASE_KEY = String(import.meta.env.VITE_SUPABASE_ANON_KEY ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? '');
+const SUPABASE_PROJECT_REF = SUPABASE_URL.match(/^https:\/\/([^.]+)\.supabase\.co/i)?.[1] ?? '';
 
 /** Format seconds as mm:ss. */
 function fmt(sec: number): string {
@@ -49,13 +52,86 @@ function isDirectVideoUrl(url: string): boolean {
   }
 }
 
+function getSupabaseAccessToken(): string | undefined {
+  for (let i = 0; i < localStorage.length; i += 1) {
+    const key = localStorage.key(i) ?? '';
+    if (key !== `sb-${SUPABASE_PROJECT_REF}-auth-token` && !(key.includes(SUPABASE_PROJECT_REF) && key.includes('auth-token'))) continue;
+    try {
+      const value = JSON.parse(localStorage.getItem(key) ?? '{}');
+      return value?.access_token ?? value?.currentSession?.access_token ?? value?.session?.access_token;
+    } catch {
+      // Ignore malformed unrelated local-storage values.
+    }
+  }
+  return undefined;
+}
+
+async function resolveVideoUrl(url?: string): Promise<string | undefined> {
+  if (!url || !url.startsWith('supabase://')) return url;
+
+  const match = url.match(/^supabase:\/\/([^/]+)\/(.+)$/i);
+  const accessToken = getSupabaseAccessToken();
+  if (!match || !accessToken) return undefined;
+
+  const [, bucket, objectPath] = match;
+  const encodedPath = objectPath.split('/').map(encodeURIComponent).join('/');
+  const response = await fetch(`${SUPABASE_URL}/storage/v1/object/sign/${encodeURIComponent(bucket)}/${encodedPath}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ expiresIn: 3600 }),
+  });
+
+  if (!response.ok) return undefined;
+  const data = await response.json();
+  const signedUrl = data?.signedURL ?? data?.signedUrl;
+  if (!signedUrl) return undefined;
+  return signedUrl.startsWith('/') ? `${SUPABASE_URL}/storage/v1${signedUrl}` : signedUrl;
+}
+
 /** Video player used by Practice Mode. */
 function DrillVideo({ url, title }: { url?: string; title: string }) {
+  const [resolvedUrl, setResolvedUrl] = useState<string | undefined>(url?.startsWith('supabase://') ? undefined : url);
+  const [resolving, setResolving] = useState(Boolean(url?.startsWith('supabase://')));
+
+  useEffect(() => {
+    let active = true;
+    setResolving(Boolean(url?.startsWith('supabase://')));
+    if (!url) {
+      setResolvedUrl(undefined);
+      setResolving(false);
+      return () => { active = false; };
+    }
+
+    void resolveVideoUrl(url).then((nextUrl) => {
+      if (!active) return;
+      setResolvedUrl(nextUrl);
+      setResolving(false);
+    }).catch(() => {
+      if (!active) return;
+      setResolvedUrl(undefined);
+      setResolving(false);
+    });
+
+    return () => { active = false; };
+  }, [url]);
+
   if (!url) {
     return <div className={`${styles.video} ${styles.videoFallback}`}>No video added yet</div>;
   }
 
-  const youtubeUrl = getYouTubeEmbedUrl(url);
+  if (resolving) {
+    return <div className={`${styles.video} ${styles.videoFallback}`}>Loading video…</div>;
+  }
+
+  if (!resolvedUrl) {
+    return <div className={`${styles.video} ${styles.videoFallback}`}>Video unavailable</div>;
+  }
+
+  const youtubeUrl = getYouTubeEmbedUrl(resolvedUrl);
   if (youtubeUrl) {
     return (
       <div className={styles.video}>
@@ -69,10 +145,10 @@ function DrillVideo({ url, title }: { url?: string; title: string }) {
     );
   }
 
-  if (isDirectVideoUrl(url)) {
+  if (isDirectVideoUrl(resolvedUrl)) {
     return (
       <div className={styles.video}>
-        <video src={url} controls playsInline preload="metadata">
+        <video src={resolvedUrl} controls playsInline preload="metadata">
           <track kind="captions" />
         </video>
       </div>
@@ -82,7 +158,7 @@ function DrillVideo({ url, title }: { url?: string; title: string }) {
   return (
     <div className={`${styles.video} ${styles.videoFallback}`}>
       <span>Video format not supported in Practice Mode.</span>
-      <a href={url} target="_blank" rel="noreferrer">Open video</a>
+      <a href={resolvedUrl} target="_blank" rel="noreferrer">Open video</a>
     </div>
   );
 }
@@ -91,7 +167,7 @@ function DrillVideo({ url, title }: { url?: string; title: string }) {
 export function PracticeMode() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { practices, draft, completePractice } = useStore();
+  const { practices, draft, completePractice, drills } = useStore();
   const plan = id === 'draft' ? draft : practices.find((p) => p.id === id);
 
   const [index, setIndex] = useState(0);
@@ -133,7 +209,7 @@ export function PracticeMode() {
     );
   }
 
-  const drill = item?.drillId ? getDrill(item.drillId) : undefined;
+  const drill = item?.drillId ? drills.find((d) => d.id === item.drillId) : undefined;
   const drillCount = plan.items.filter((i) => i.kind === 'drill').length;
   const progress = ((index + 1) / plan.items.length) * 100;
 
@@ -202,7 +278,7 @@ export function PracticeMode() {
 
       <div className={styles.strip}>
         {plan.items.map((it, i) => {
-          const d = it.drillId ? getDrill(it.drillId) : undefined;
+          const d = it.drillId ? drills.find((candidate) => candidate.id === it.drillId) : undefined;
           const cls = i === index ? styles.stripActive : done.includes(it.id) ? styles.stripDone : '';
           return (
             <button key={it.id} type="button" className={`${styles.stripItem} ${cls}`} onClick={() => setIndex(i)}>
