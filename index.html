@@ -7,32 +7,26 @@
   <meta name="application-name" content="BPDS" />
   <link rel="manifest" href="https://bpds-app.vercel.app/manifest.webmanifest" />
   <link rel="icon" type="image/svg+xml" href="https://bpds-app.vercel.app/bpds-icon.svg" />
-  <link rel="stylesheet" crossorigin href="https://bpds-ddyl45uxc-mileticpredrag1008-6372s-projects.vercel.app/assets/index-dBEvdzzB.css" />
+  <link rel="stylesheet" crossorigin href="https://bpds-app.vercel.app/assets/index-D7cjH5pi.css" />
   <title>BPDS — Basketball Player Development System</title>
   <style>
-    .bpds-premium-brand{display:flex;flex-direction:column;justify-content:center;line-height:1;text-decoration:none;min-width:180px}
-    .bpds-premium-brand__mark{display:flex;align-items:flex-start;width:max-content;font-size:27px;font-weight:950;font-style:italic;letter-spacing:-1.8px;color:#fff;line-height:.9}
-    .bpds-premium-brand__accent{display:inline-block;width:9px;height:12px;margin:1px 0 0 3px;background:#f45a1b;transform:skew(-8deg)}
-    .bpds-premium-brand__sub{margin-top:7px;font-size:8px;font-weight:700;letter-spacing:2.1px;color:#9da2a8;white-space:nowrap}
-    .bpds-mini-video{overflow:hidden;background:#0a0d10!important}
-    .bpds-mini-video video{width:100%;height:100%;display:block;object-fit:cover;background:#0a0d10}
-    @media(max-width:720px){.bpds-premium-brand{min-width:132px}.bpds-premium-brand__mark{font-size:24px}.bpds-premium-brand__sub{font-size:6.6px;letter-spacing:1.35px}}
+    .bpds-thumb-media{width:100%;height:100%;display:block;object-fit:cover;border:0;border-radius:inherit;background:#0a0d10}
+    .bpds-thumb-youtube{position:relative;width:100%;height:100%;background-size:cover;background-position:center;border-radius:inherit;overflow:hidden}
+    .bpds-thumb-youtube:after{content:'▶';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:rgba(0,0,0,.72);color:#fff;font-size:12px;padding-left:2px}
+    .bpds-video-placeholder{width:100%;height:100%;display:grid;place-items:center;color:#737b86;font-size:34px;background:#0a0d10;border-radius:inherit}
   </style>
 </head>
 <body>
   <div id="root"></div>
   <script>
-  (() => {
+  (()=>{
     const SUPABASE_URL='https://xnbpadoizmmggsvfcygc.supabase.co';
     const SUPABASE_KEY='sb_publishable_c8x9vhv56LERv3m7EYme1w_Wx-JLclm';
     const PROJECT_REF='xnbpadoizmmggsvfcygc';
-    const CODE_RE=/^(?:WUP|BM|SBH|MBH|COD|SH|PASS|FIN|DEF|SSG|ATH|PLY)-[A-Z0-9-]+$/i;
-    const signedCache=new Map();
-    const byCode=new Map();
-    const byName=new Map();
+    const byCode=new Map(), signed=new Map();
     let loadedToken='';
 
-    const authToken=()=>{
+    function token(){
       for(let i=0;i<localStorage.length;i++){
         const k=localStorage.key(i)||'';
         if(k===`sb-${PROJECT_REF}-auth-token`||(k.includes(PROJECT_REF)&&k.includes('auth-token'))){
@@ -44,193 +38,119 @@
         }
       }
       return '';
-    };
+    }
 
-    const loadDrills=async()=>{
-      const token=authToken();
-      if(!token||token===loadedToken)return;
-      loadedToken=token;
+    async function loadDrills(){
+      const t=token();
+      if(!t||t===loadedToken)return;
+      loadedToken=t;
       try{
-        const r=await fetch(`${SUPABASE_URL}/rest/v1/drills?select=id,code,name,data,published&order=updated_at.desc`,{
-          headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${token}`}
-        });
+        const r=await fetch(`${SUPABASE_URL}/rest/v1/drills?select=id,code,name,data&order=updated_at.desc`,{headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${t}`}});
         if(!r.ok){loadedToken='';return;}
         const rows=await r.json();
-        byCode.clear();byName.clear();
+        byCode.clear();
         for(const row of rows){
           const code=String(row?.data?.code||row?.code||'').trim().toUpperCase();
-          const name=String(row?.data?.name||row?.name||'').trim();
-          const video=String(row?.data?.videoUrl||row?.videoUrl||'').trim();
-          if(video){
-            if(code)byCode.set(code,video);
-            if(name)byName.set(name.toLowerCase(),video);
-          }
+          const video=String(row?.data?.videoUrl||'').trim();
+          if(code&&video)byCode.set(code,video);
         }
-        setTimeout(patch,0);
+        patch();
       }catch{loadedToken='';}
-    };
+    }
 
-    const resolveVideo=async raw=>{
-      if(!raw)return '';
-      if(!/^supabase:\/\//i.test(raw))return raw;
-      if(signedCache.has(raw))return signedCache.get(raw);
+    async function resolve(raw){
+      if(!raw||!raw.startsWith('supabase://'))return raw||'';
+      if(signed.has(raw))return signed.get(raw);
       const m=raw.match(/^supabase:\/\/([^/]+)\/(.+)$/i);
-      if(!m)return '';
-      const token=authToken();
-      if(!token)return '';
+      const t=token();
+      if(!m||!t)return '';
       const path=m[2].split('/').map(encodeURIComponent).join('/');
       try{
-        const r=await fetch(`${SUPABASE_URL}/storage/v1/object/sign/${encodeURIComponent(m[1])}/${path}`,{
-          method:'POST',
-          headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,Authorization:`Bearer ${token}`},
-          body:JSON.stringify({expiresIn:3600})
-        });
+        const r=await fetch(`${SUPABASE_URL}/storage/v1/object/sign/${encodeURIComponent(m[1])}/${path}`,{method:'POST',headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,Authorization:`Bearer ${t}`},body:JSON.stringify({expiresIn:3600})});
         if(!r.ok)return '';
         const j=await r.json();
         let u=j?.signedURL||j?.signedUrl||'';
-        if(u&&u.startsWith('/'))u=`${SUPABASE_URL}/storage/v1${u}`;
-        if(u)signedCache.set(raw,u);
+        if(u.startsWith('/'))u=`${SUPABASE_URL}/storage/v1${u}`;
+        if(u)signed.set(raw,u);
         return u;
       }catch{return '';}
-    };
+    }
 
-    const youtubeEmbed=raw=>{
+    function youtubeId(raw){
       try{
-        const u=new URL(raw),host=u.hostname.replace(/^www\./,'').toLowerCase();let id='';
-        if(host==='youtu.be')id=u.pathname.split('/').filter(Boolean)[0]||'';
-        else if(host==='youtube.com'||host==='m.youtube.com'){
-          if(u.pathname==='/watch')id=u.searchParams.get('v')||'';
-          else{const p=u.pathname.split('/').filter(Boolean);if(['shorts','embed','live'].includes(p[0]))id=p[1]||'';}
+        const u=new URL(raw),h=u.hostname.replace(/^www\./,'').toLowerCase();
+        if(h==='youtu.be')return u.pathname.split('/').filter(Boolean)[0]||'';
+        if(h==='youtube.com'||h==='m.youtube.com'){
+          if(u.pathname==='/watch')return u.searchParams.get('v')||'';
+          const p=u.pathname.split('/').filter(Boolean);
+          if(['shorts','embed','live'].includes(p[0]))return p[1]||'';
         }
-        return id?`https://www.youtube.com/embed/${id}?rel=0&playsinline=1`:null;
-      }catch{return null;}
-    };
+      }catch{}
+      return '';
+    }
 
-    const createMedia=async(raw,title,compact)=>{
-      const url=await resolveVideo(raw);if(!url)return null;
-      const embed=youtubeEmbed(url);
-      const media=document.createElement(embed?'iframe':'video');
-      media.dataset.bpdsInjected='1';
-      media.dataset.bpdsRaw=raw;
-      media.style.cssText='width:100%;height:100%;display:block;border:0;background:#0a0d10;object-fit:cover;border-radius:inherit';
-      if(embed){
-        media.src=embed;media.title=title||'BPDS drill video';media.allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';media.allowFullscreen=true;
+    async function mountThumb(box,code,raw){
+      if(!box||box.dataset.bpdsVideoCode===code)return;
+      const url=await resolve(raw); if(!url||!box.isConnected)return;
+      const yt=youtubeId(url);
+      box.dataset.bpdsVideoCode=code;
+      if(yt){
+        const d=document.createElement('div');
+        d.className='bpds-thumb-youtube';
+        d.style.backgroundImage=`url(https://i.ytimg.com/vi/${encodeURIComponent(yt)}/hqdefault.jpg)`;
+        box.replaceChildren(d);
       }else{
-        media.src=url;media.playsInline=true;media.preload='auto';media.muted=!!compact;media.controls=!compact;
-        if(compact){
-          media.addEventListener('loadedmetadata',()=>{try{media.currentTime=Math.min(1,Math.max(.2,(media.duration||1)*.06))}catch{}},{once:true});
-          media.addEventListener('seeked',()=>{try{media.pause()}catch{}},{once:true});
-        }
+        const v=document.createElement('video');
+        v.className='bpds-thumb-media'; v.src=url; v.muted=true; v.playsInline=true; v.preload='metadata';
+        v.addEventListener('loadedmetadata',()=>{try{v.currentTime=Math.min(.5,Math.max(.08,(v.duration||1)*.03))}catch{}},{once:true});
+        v.addEventListener('seeked',()=>{try{v.pause()}catch{}},{once:true});
+        box.replaceChildren(v);
       }
-      return media;
-    };
+    }
 
-    const mount=async(box,raw,title,compact)=>{
-      if(!box||!raw)return;
-      const existing=box.querySelector(':scope > [data-bpds-injected="1"]');
-      if(existing?.dataset.bpdsRaw===raw)return;
-      if(existing)existing.remove();
-      const media=await createMedia(raw,title,compact);
-      if(!media||!box.isConnected)return;
-      if(compact)box.classList.add('bpds-mini-video');
-      box.replaceChildren(media);
-    };
-
-    const currentPractice=()=>{
-      const headings=[...document.querySelectorAll('h1,h2,h3')].map(e=>(e.textContent||'').trim()).filter(Boolean);
-      for(const h of headings){const raw=byName.get(h.toLowerCase());if(raw)return{raw,name:h};}
-      const tabs=[...document.querySelectorAll('button,[role="tab"]')].filter(el=>CODE_RE.test((el.textContent||'').trim()));
-      const active=tabs.find(el=>el.getAttribute('aria-selected')==='true'||el.getAttribute('data-state')==='active'||/active|selected/i.test(String(el.className||'')));
-      if(active){const code=(active.textContent||'').trim().toUpperCase();return{raw:byCode.get(code)||'',name:code};}
-      return{raw:'',name:''};
-    };
-
-    const practiceBox=()=>{
-      const candidates=[...document.querySelectorAll('div,section')].filter(el=>{
-        const r=el.getBoundingClientRect();
-        if(r.width<300||r.height<170||r.height>760)return false;
-        if(el.querySelector('iframe[data-bpds-injected="1"],video[data-bpds-injected="1"]'))return true;
-        const text=(el.textContent||'').trim();
-        return text===''||/^(▶|►|▷)$/.test(text);
-      });
-      return candidates.sort((a,b)=>{
-        const x=a.getBoundingClientRect(),y=b.getBoundingClientRect();
-        return Math.abs(x.width/x.height-16/9)-Math.abs(y.width/y.height-16/9);
-      })[0]||null;
-    };
-
-    const patchPractice=()=>{
-      const text=document.body?.innerText||'';
-      if(!(location.pathname.toLowerCase().includes('practice')||/block \d+ of \d+/i.test(text)))return;
-      const p=currentPractice();
-      const box=practiceBox();
-      if(!p.raw){
-        document.querySelectorAll('[data-bpds-injected="1"]').forEach(el=>{
-          const r=el.getBoundingClientRect();if(r.width>280&&r.height>160)el.remove();
-        });
+    async function mountPractice(box,code,raw){
+      if(!box)return;
+      if(!raw){
+        if(box.dataset.bpdsVideoPatched!=='empty'){
+          const p=document.createElement('div'); p.className='bpds-video-placeholder'; p.textContent='▶';
+          box.replaceChildren(p); box.dataset.bpdsVideoPatched='empty';
+        }
         return;
       }
-      mount(box,p.raw,p.name,false);
-    };
-
-    const cardForCode=(codeEl)=>{
-      let el=codeEl.parentElement;
-      for(let i=0;i<9&&el;i++,el=el.parentElement){
-        const r=el.getBoundingClientRect();
-        if(r.width>380&&r.height>90&&r.height<470)return el;
-      }
-      return null;
-    };
-
-    const thumbBox=(card,codeEl)=>{
-      const er=codeEl.getBoundingClientRect();
-      const direct=[...card.querySelectorAll('div,section,button')].filter(el=>{
-        if(el===card||el.contains(codeEl))return false;
-        const r=el.getBoundingClientRect();
-        if(r.width<65||r.width>190||r.height<45||r.height>145)return false;
-        if(r.left>=er.left-4)return false;
-        const text=(el.textContent||'').trim();
-        return text===''||/^(▶|►|▷)$/.test(text)||!!el.querySelector('[data-bpds-injected="1"]');
-      });
-      if(direct.length)return direct.sort((a,b)=>{
-        const x=a.getBoundingClientRect(),y=b.getBoundingClientRect();
-        return Math.abs((x.top+x.bottom)/2-(er.top+er.bottom)/2)-Math.abs((y.top+y.bottom)/2-(er.top+er.bottom)/2);
-      })[0];
-      return null;
-    };
-
-    const patchCards=()=>{
-      const codeEls=[...document.querySelectorAll('body *')].filter(el=>!el.children.length&&CODE_RE.test((el.textContent||'').trim()));
-      for(const codeEl of codeEls){
-        const code=(codeEl.textContent||'').trim().toUpperCase();
-        const raw=byCode.get(code)||'';
-        if(!raw)continue;
-        const card=cardForCode(codeEl);if(!card)continue;
-        const box=thumbBox(card,codeEl);if(box)mount(box,raw,code,true);
-      }
-    };
-
-    const patchBrand=()=>{
-      const candidates=[...document.querySelectorAll('header a,header div')].filter(el=>{
-        const t=(el.textContent||'').replace(/\s+/g,' ').trim();
-        return /\bBPDS\b/i.test(t)&&/PLAYER DEVELOPMENT/i.test(t)&&t.length<80;
-      }).sort((a,b)=>a.getBoundingClientRect().width-b.getBoundingClientRect().width);
-      const brand=candidates[0];if(!brand||brand.dataset.bpdsPremiumBrand)return;
-      brand.dataset.bpdsPremiumBrand='1';brand.classList.add('bpds-premium-brand');
-      brand.innerHTML='<span class="bpds-premium-brand__mark">BPDS<span class="bpds-premium-brand__accent"></span></span><span class="bpds-premium-brand__sub">BASKETBALL PLAYER DEVELOPMENT SYSTEM</span>';
-    };
-
-    function patch(){
-      loadDrills();
-      document.querySelectorAll('button,a').forEach(el=>{if((el.textContent||'').trim().toLowerCase()==='view demo')el.remove();});
-      patchBrand();patchCards();patchPractice();
+      if(box.dataset.bpdsVideoPatched===code)return;
+      const url=await resolve(raw); if(!url||!box.isConnected)return;
+      const yt=youtubeId(url),m=document.createElement(yt?'iframe':'video');
+      m.style.cssText='width:100%;height:100%;display:block;border:0;border-radius:14px;background:#0a0d10;object-fit:contain';
+      if(yt){m.src=`https://www.youtube-nocookie.com/embed/${encodeURIComponent(yt)}?rel=0&playsinline=1`;m.title=code;m.allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';m.allowFullscreen=true;}
+      else{m.src=url;m.controls=true;m.playsInline=true;m.preload='metadata';}
+      box.replaceChildren(m); box.dataset.bpdsVideoPatched=code;
     }
-    new MutationObserver(()=>{clearTimeout(window.__bpdsPatchTimer);window.__bpdsPatchTimer=setTimeout(patch,100);}).observe(document.documentElement,{childList:true,subtree:true});
+
+    function patchTrainingRows(){
+      document.querySelectorAll('[class*="_itemCode_19bwe_"]').forEach(codeEl=>{
+        const code=(codeEl.textContent||'').trim().toUpperCase();
+        const raw=byCode.get(code); if(!raw)return;
+        const row=codeEl.closest('[class*="_item_19bwe_"]');
+        const thumb=row?.querySelector('[class*="_thumb_19bwe_"]');
+        if(thumb)mountThumb(thumb,code,raw);
+      });
+    }
+
+    function patchPracticeMode(){
+      const codeEl=document.querySelector('[class*="_code_zwdo2_"]');
+      const box=document.querySelector('[class*="_video_zwdo2_"]');
+      if(!codeEl||!box)return;
+      const code=(codeEl.textContent||'').trim().toUpperCase();
+      mountPractice(box,code,byCode.get(code)||'');
+    }
+
+    function patch(){loadDrills();patchTrainingRows();patchPracticeMode();}
+    new MutationObserver(()=>{clearTimeout(window.__bpdsExactVideoPatch);window.__bpdsExactVideoPatch=setTimeout(patch,80)}).observe(document.documentElement,{subtree:true,childList:true,characterData:true});
     addEventListener('DOMContentLoaded',patch);
-    addEventListener('storage',()=>{loadedToken='';patch();});
-    setInterval(patch,800);
+    addEventListener('storage',()=>{loadedToken='';byCode.clear();signed.clear();patch();});
+    setInterval(patch,1000);
   })();
   </script>
-  <script type="module" crossorigin src="https://bpds-ddyl45uxc-mileticpredrag1008-6372s-projects.vercel.app/assets/index-BQ8PAFmP.js"></script>
+  <script type="module" crossorigin src="https://bpds-app.vercel.app/assets/index-DxXcCKDq.js"></script>
 </body>
 </html>
