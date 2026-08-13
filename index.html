@@ -10,9 +10,8 @@
   <link rel="stylesheet" crossorigin href="https://bpds-app.vercel.app/assets/index-D7cjH5pi.css" />
   <title>BPDS — Basketball Player Development System</title>
   <style>
-    .bpds-thumb-media{width:100%;height:100%;display:block;object-fit:cover;border:0;border-radius:inherit;background:#0a0d10}
-    .bpds-thumb-youtube{position:relative;width:100%;height:100%;background-size:cover;background-position:center;border-radius:inherit;overflow:hidden}
-    .bpds-thumb-youtube:after{content:'▶';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:rgba(0,0,0,.72);color:#fff;font-size:12px;padding-left:2px}
+    .bpds-thumb-media{width:100%;height:100%;display:block;object-fit:cover;border:0;border-radius:inherit;background:#0a0d10;pointer-events:none}
+    .bpds-thumb-youtube{position:relative;width:100%;height:100%;background-size:cover;background-position:center;border-radius:inherit;overflow:hidden;pointer-events:none}
     .bpds-video-placeholder{width:100%;height:100%;display:grid;place-items:center;color:#737b86;font-size:34px;background:#0a0d10;border-radius:inherit}
   </style>
 </head>
@@ -23,6 +22,7 @@
     const SUPABASE_URL='https://xnbpadoizmmggsvfcygc.supabase.co';
     const SUPABASE_KEY='sb_publishable_c8x9vhv56LERv3m7EYme1w_Wx-JLclm';
     const PROJECT_REF='xnbpadoizmmggsvfcygc';
+    const CODE_RE=/^(?:WUP|BM|SBH|MBH|COD|SH|PASS|FIN|DEF|SSG|ATH|PLY)-[A-Z0-9-]+$/i;
     const byCode=new Map(), signed=new Map();
     let loadedToken='';
 
@@ -136,6 +136,64 @@
       });
     }
 
+    function onDrillLibrary(){
+      return [...document.querySelectorAll('h1,h2,h3')].some(el=>/drill\s+library/i.test((el.textContent||'').trim()));
+    }
+
+    function cardForCode(codeEl){
+      let el=codeEl.parentElement;
+      for(let i=0;i<9&&el;i++,el=el.parentElement){
+        const r=el.getBoundingClientRect();
+        if(r.width>280&&r.height>100&&r.height<520)return el;
+      }
+      return null;
+    }
+
+    function thumbForCard(card,codeEl){
+      const er=codeEl.getBoundingClientRect();
+      const candidates=[...card.querySelectorAll('div,section,button')].filter(el=>{
+        if(el===card||el.contains(codeEl))return false;
+        const r=el.getBoundingClientRect();
+        if(r.width<70||r.width>260||r.height<50||r.height>180)return false;
+        const text=(el.textContent||'').trim();
+        const mediaLike=el.querySelector('img,video,[class*="thumb" i],[class*="media" i],[class*="video" i]');
+        const mostlyLeft=r.left<er.left+20;
+        return mostlyLeft&&(text===''||/^(▶|►|▷|play)$/i.test(text)||!!mediaLike);
+      });
+      return candidates.sort((a,b)=>{
+        const x=a.getBoundingClientRect(),y=b.getBoundingClientRect();
+        const cy=(er.top+er.bottom)/2;
+        return Math.abs((x.top+x.bottom)/2-cy)-Math.abs((y.top+y.bottom)/2-cy);
+      })[0]||null;
+    }
+
+    function patchDrillLibrary(){
+      if(!onDrillLibrary())return;
+      const codeEls=[...document.querySelectorAll('body *')].filter(el=>!el.children.length&&CODE_RE.test((el.textContent||'').trim()));
+      for(const codeEl of codeEls){
+        const code=(codeEl.textContent||'').trim().toUpperCase();
+        const raw=byCode.get(code); if(!raw)continue;
+        const card=cardForCode(codeEl); if(!card)continue;
+        const thumb=thumbForCard(card,codeEl); if(thumb)mountThumb(thumb,code,raw);
+      }
+    }
+
+    function removeDeadUi(){
+      document.querySelectorAll('button,a').forEach(el=>{
+        const text=(el.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();
+        if(text==='view demo'||text==='demo')el.remove();
+      });
+      if(onDrillLibrary()){
+        document.querySelectorAll('button').forEach(el=>{
+          const text=(el.textContent||'').trim();
+          if(/^(▶|►|▷|play)$/i.test(text)){
+            const r=el.getBoundingClientRect();
+            if(r.width<90&&r.height<90)el.remove();
+          }
+        });
+      }
+    }
+
     function patchPracticeMode(){
       const codeEl=document.querySelector('[class*="_code_zwdo2_"]');
       const box=document.querySelector('[class*="_video_zwdo2_"]');
@@ -144,7 +202,7 @@
       mountPractice(box,code,byCode.get(code)||'');
     }
 
-    function patch(){loadDrills();patchTrainingRows();patchPracticeMode();}
+    function patch(){loadDrills();removeDeadUi();patchDrillLibrary();patchTrainingRows();patchPracticeMode();}
     new MutationObserver(()=>{clearTimeout(window.__bpdsExactVideoPatch);window.__bpdsExactVideoPatch=setTimeout(patch,80)}).observe(document.documentElement,{subtree:true,childList:true,characterData:true});
     addEventListener('DOMContentLoaded',patch);
     addEventListener('storage',()=>{loadedToken='';byCode.clear();signed.clear();patch();});
