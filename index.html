@@ -113,8 +113,12 @@
     }
 
     async function mountLibraryThumb(box,code,raw){
-      if(!box||box.dataset.bpdsLibraryVideoCode===code)return;
-      const url=await resolve(raw); if(!url||!box.isConnected)return;
+      if(!box||box.dataset.bpdsLibraryVideoCode===code||box.dataset.bpdsLibraryVideoPending===code)return;
+      box.dataset.bpdsLibraryVideoPending=code;
+      const url=await resolve(raw);
+      if(!url||!box.isConnected){delete box.dataset.bpdsLibraryVideoPending;return;}
+      const current=(box.querySelector('[class*="_thumbCode_1lvct_"]')?.textContent||'').trim().toUpperCase();
+      if(current!==code){delete box.dataset.bpdsLibraryVideoPending;return;}
       box.querySelectorAll('.bpds-library-db-media,.bpds-library-db-youtube').forEach(el=>el.remove());
       const yt=youtubeId(url);
       let media;
@@ -130,6 +134,7 @@
       }
       box.prepend(media);
       box.dataset.bpdsLibraryVideoCode=code;
+      delete box.dataset.bpdsLibraryVideoPending;
     }
 
     async function mountPractice(box,code,raw){
@@ -181,15 +186,19 @@
     }
 
     function detailBaseMedia(){
+      const marked=document.querySelector('[data-bpds-detail-base="1"]');
+      if(marked?.isConnected)return marked;
       const all=[...document.querySelectorAll('main video,main iframe,video,iframe')].filter(el=>!el.classList.contains('bpds-detail-db-media')&&el.isConnected);
       const visible=all.filter(el=>{
         const r=el.getBoundingClientRect();
         return r.width>=240&&r.height>=120;
       });
-      return visible.sort((a,b)=>{
+      const media=visible.sort((a,b)=>{
         const x=a.getBoundingClientRect(),y=b.getBoundingClientRect();
         return (y.width*y.height)-(x.width*x.height);
       })[0]||null;
+      if(media)media.dataset.bpdsDetailBase='1';
+      return media;
     }
 
     async function patchDrillDetail(){
@@ -197,34 +206,50 @@
       if(!code||!byCode.size)return;
       const media=detailBaseMedia(); if(!media)return;
       const host=media.parentElement; if(!host)return;
-      host.querySelectorAll('.bpds-detail-empty,.bpds-detail-db-media').forEach(el=>el.remove());
       const raw=byCode.get(code)||'';
+      const empty=host.querySelector('.bpds-detail-empty');
+      const injected=host.querySelector('.bpds-detail-db-media');
+
       if(!raw){
+        injected?.remove();
         media.style.display='none';
-        const p=document.createElement('div'); p.className='bpds-detail-empty'; p.textContent='▶';
+        if(empty?.dataset.bpdsDetailCode===code)return;
+        empty?.remove();
+        const p=document.createElement('div'); p.className='bpds-detail-empty'; p.textContent='▶'; p.dataset.bpdsDetailCode=code;
         host.insertBefore(p,media);
         media.dataset.bpdsDetailCode=code;
         return;
       }
+
+      empty?.remove();
       const url=await resolve(raw); if(!url||!media.isConnected)return;
-      media.style.removeProperty('display');
       const yt=youtubeId(url);
       if(yt){
         media.style.display='none';
+        if(injected?.dataset.bpdsDetailCode===code&&injected.dataset.bpdsDetailUrl===url)return;
+        injected?.remove();
         const f=document.createElement('iframe');
         f.className='bpds-detail-db-media';
         f.src=`https://www.youtube-nocookie.com/embed/${encodeURIComponent(yt)}?rel=0&playsinline=1`;
         f.title=code; f.allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture'; f.allowFullscreen=true;
+        f.dataset.bpdsDetailCode=code; f.dataset.bpdsDetailUrl=url;
         host.insertBefore(f,media);
-      }else if(media.tagName==='VIDEO'){
-        if(media.dataset.bpdsDetailCode!==code||media.dataset.bpdsDetailUrl!==url){
-          media.src=url; media.controls=true; media.playsInline=true; media.preload='metadata';
-          media.dataset.bpdsDetailCode=code; media.dataset.bpdsDetailUrl=url;
-        }
+        return;
+      }
+
+      if(media.tagName==='VIDEO'){
+        injected?.remove();
+        media.style.removeProperty('display');
+        if(media.dataset.bpdsDetailCode===code&&media.dataset.bpdsDetailUrl===url)return;
+        media.src=url; media.controls=true; media.playsInline=true; media.preload='metadata';
+        media.dataset.bpdsDetailCode=code; media.dataset.bpdsDetailUrl=url;
       }else{
         media.style.display='none';
+        if(injected?.dataset.bpdsDetailCode===code&&injected.dataset.bpdsDetailUrl===url)return;
+        injected?.remove();
         const v=document.createElement('video');
         v.className='bpds-detail-db-media'; v.src=url; v.controls=true; v.playsInline=true; v.preload='metadata';
+        v.dataset.bpdsDetailCode=code; v.dataset.bpdsDetailUrl=url;
         host.insertBefore(v,media);
       }
     }
