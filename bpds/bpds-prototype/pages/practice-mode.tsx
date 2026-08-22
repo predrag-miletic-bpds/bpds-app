@@ -1,11 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { DrillVideo, useDrills } from '../data/drill-media.js';
 import { useStore } from '../store/store.js';
 import styles from './practice-mode.module.css';
-
-const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL ?? '');
-const SUPABASE_KEY = String(import.meta.env.VITE_SUPABASE_ANON_KEY ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? '');
-const SUPABASE_PROJECT_REF = SUPABASE_URL.match(/^https:\/\/([^.]+)\.supabase\.co/i)?.[1] ?? '';
 
 /** Format seconds as mm:ss. */
 function fmt(sec: number): string {
@@ -14,160 +11,15 @@ function fmt(sec: number): string {
   return `${sec < 0 ? '-' : ''}${m}:${String(s).padStart(2, '0')}`;
 }
 
-/** Convert common YouTube URLs to the embeddable player URL. */
-function getYouTubeEmbedUrl(url: string): string | undefined {
-  try {
-    const parsed = new URL(url);
-    const host = parsed.hostname.replace(/^www\./, '').toLowerCase();
-
-    if (host === 'youtu.be') {
-      const id = parsed.pathname.split('/').filter(Boolean)[0];
-      return id ? `https://www.youtube.com/embed/${id}` : undefined;
-    }
-
-    if (host === 'youtube.com' || host === 'm.youtube.com') {
-      if (parsed.pathname === '/watch') {
-        const id = parsed.searchParams.get('v');
-        return id ? `https://www.youtube.com/embed/${id}` : undefined;
-      }
-      if (parsed.pathname.startsWith('/shorts/')) {
-        const id = parsed.pathname.split('/')[2];
-        return id ? `https://www.youtube.com/embed/${id}` : undefined;
-      }
-      if (parsed.pathname.startsWith('/embed/')) return url;
-    }
-  } catch {
-    return undefined;
-  }
-
-  return undefined;
-}
-
-function isDirectVideoUrl(url: string): boolean {
-  try {
-    const pathname = new URL(url).pathname.toLowerCase();
-    return ['.mp4', '.webm', '.ogg', '.mov', '.m4v'].some((ext) => pathname.endsWith(ext));
-  } catch {
-    return false;
-  }
-}
-
-function getSupabaseAccessToken(): string | undefined {
-  for (let i = 0; i < localStorage.length; i += 1) {
-    const key = localStorage.key(i) ?? '';
-    if (key !== `sb-${SUPABASE_PROJECT_REF}-auth-token` && !(key.includes(SUPABASE_PROJECT_REF) && key.includes('auth-token'))) continue;
-    try {
-      const value = JSON.parse(localStorage.getItem(key) ?? '{}');
-      return value?.access_token ?? value?.currentSession?.access_token ?? value?.session?.access_token;
-    } catch {
-      // Ignore malformed unrelated local-storage values.
-    }
-  }
-  return undefined;
-}
-
-async function resolveVideoUrl(url?: string): Promise<string | undefined> {
-  if (!url || !url.startsWith('supabase://')) return url;
-
-  const match = url.match(/^supabase:\/\/([^/]+)\/(.+)$/i);
-  const accessToken = getSupabaseAccessToken();
-  if (!match || !accessToken) return undefined;
-
-  const [, bucket, objectPath] = match;
-  const encodedPath = objectPath.split('/').map(encodeURIComponent).join('/');
-  const response = await fetch(`${SUPABASE_URL}/storage/v1/object/sign/${encodeURIComponent(bucket)}/${encodedPath}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify({ expiresIn: 3600 }),
-  });
-
-  if (!response.ok) return undefined;
-  const data = await response.json();
-  const signedUrl = data?.signedURL ?? data?.signedUrl;
-  if (!signedUrl) return undefined;
-  return signedUrl.startsWith('/') ? `${SUPABASE_URL}/storage/v1${signedUrl}` : signedUrl;
-}
-
-/** Video player used by Practice Mode. */
-function DrillVideo({ url, title }: { url?: string; title: string }) {
-  const [resolvedUrl, setResolvedUrl] = useState<string | undefined>(url?.startsWith('supabase://') ? undefined : url);
-  const [resolving, setResolving] = useState(Boolean(url?.startsWith('supabase://')));
-
-  useEffect(() => {
-    let active = true;
-    setResolving(Boolean(url?.startsWith('supabase://')));
-    if (!url) {
-      setResolvedUrl(undefined);
-      setResolving(false);
-      return () => { active = false; };
-    }
-
-    void resolveVideoUrl(url).then((nextUrl) => {
-      if (!active) return;
-      setResolvedUrl(nextUrl);
-      setResolving(false);
-    }).catch(() => {
-      if (!active) return;
-      setResolvedUrl(undefined);
-      setResolving(false);
-    });
-
-    return () => { active = false; };
-  }, [url]);
-
-  if (!url) {
-    return <div className={`${styles.video} ${styles.videoFallback}`}>No video added yet</div>;
-  }
-
-  if (resolving) {
-    return <div className={`${styles.video} ${styles.videoFallback}`}>Loading video…</div>;
-  }
-
-  if (!resolvedUrl) {
-    return <div className={`${styles.video} ${styles.videoFallback}`}>Video unavailable</div>;
-  }
-
-  const youtubeUrl = getYouTubeEmbedUrl(resolvedUrl);
-  if (youtubeUrl) {
-    return (
-      <div className={styles.video}>
-        <iframe
-          src={youtubeUrl}
-          title={`${title} demonstration video`}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowFullScreen
-        />
-      </div>
-    );
-  }
-
-  if (isDirectVideoUrl(resolvedUrl)) {
-    return (
-      <div className={styles.video}>
-        <video src={resolvedUrl} controls playsInline preload="metadata">
-          <track kind="captions" />
-        </video>
-      </div>
-    );
-  }
-
-  return (
-    <div className={`${styles.video} ${styles.videoFallback}`}>
-      <span>Video format not supported in Practice Mode.</span>
-      <a href={resolvedUrl} target="_blank" rel="noreferrer">Open video</a>
-    </div>
-  );
-}
-
 /** Mobile-first Practice Mode — one drill at a time, big buttons, live timer. */
 export function PracticeMode() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { practices, draft, completePractice, drills } = useStore();
+  const location = useLocation();
+  const fromWeeklyPlan = (location.state as { from?: string } | null)?.from === '/weekly-plan';
+  const drills = useDrills();
+  const getDrill = (drillId: string) => drills.find((item) => item.id === drillId);
+  const { practices, draft, completePractice } = useStore();
   const plan = id === 'draft' ? draft : practices.find((p) => p.id === id);
 
   const [index, setIndex] = useState(0);
@@ -209,7 +61,7 @@ export function PracticeMode() {
     );
   }
 
-  const drill = item?.drillId ? drills.find((d) => d.id === item.drillId) : undefined;
+  const drill = item?.drillId ? getDrill(item.drillId) : undefined;
   const drillCount = plan.items.filter((i) => i.kind === 'drill').length;
   const progress = ((index + 1) / plan.items.length) * 100;
 
@@ -221,6 +73,8 @@ export function PracticeMode() {
   };
 
   const finish = () => {
+    // The store marks exactly these slots done, so the history entry counts the
+    // drills the coach actually completed rather than a bare number.
     completePractice(plan, [...notes, finalNote].filter(Boolean).join(' · '), done);
     void navigate('/history');
   };
@@ -268,6 +122,9 @@ export function PracticeMode() {
   return (
     <div className={styles.wrap}>
       <div className={styles.top}>
+        {fromWeeklyPlan ? (
+          <button type="button" className={styles.exit} onClick={() => navigate('/weekly-plan')}>← Plan</button>
+        ) : null}
         <div className={styles.topTitle}>
           {plan.name}
           <small>Block {index + 1} of {plan.items.length} · {done.length} completed</small>
@@ -278,7 +135,7 @@ export function PracticeMode() {
 
       <div className={styles.strip}>
         {plan.items.map((it, i) => {
-          const d = it.drillId ? drills.find((candidate) => candidate.id === it.drillId) : undefined;
+          const d = it.drillId ? getDrill(it.drillId) : undefined;
           const cls = i === index ? styles.stripActive : done.includes(it.id) ? styles.stripDone : '';
           return (
             <button key={it.id} type="button" className={`${styles.stripItem} ${cls}`} onClick={() => setIndex(i)}>
@@ -298,7 +155,7 @@ export function PracticeMode() {
           <span className={styles.pill}>{item?.phase}</span>
         </div>
 
-        {drill ? <DrillVideo url={drill.videoUrl} title={drill.name} /> : null}
+      {drill ? <DrillVideo drill={drill} className={styles.video} /> : null}
 
         <div className={styles.timer}>
           <div className={styles.time} style={{ color: left < 0 ? '#ff7a5c' : '#fff' }}>{fmt(left)}</div>

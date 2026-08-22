@@ -1,6 +1,14 @@
-node_modules
-dist
+node_modules/
+.npm-cache/
+.pnpm-store/
+dist/
+**/dist/
+.bit/
+.tmp/
+.mcp.json
+.history
 .env
 .env.*
-.vercel
+*.tar.gz
+*.log
 .DS_Store

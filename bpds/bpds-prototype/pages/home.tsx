@@ -36,12 +36,8 @@ const SAMPLE = [
 /** Public marketing homepage for BPDS. */
 export function Home() {
   const navigate = useNavigate();
-  const { login } = useStore();
-
-  const start = () => {
-    login();
-    void navigate('/dashboard');
-  };
+  useStore();
+  const start = () => { void navigate('/login'); };
 
   return (
     <div>
@@ -60,7 +56,7 @@ export function Home() {
             </p>
             <div className={styles.ctaRow}>
               <Button variant="primary" size="lg" onClick={start}>Start as Coach</Button>
-            </div>
+      </div>
             <div className={styles.heroStats}>
               <div className={styles.stat}><strong>{MODULES.length}</strong><span>Modules</span></div>
               <div className={styles.stat}><strong>{DRILLS.length}+</strong><span>Methodical Drills</span></div>
