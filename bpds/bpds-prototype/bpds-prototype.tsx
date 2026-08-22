@@ -13,16 +13,20 @@ import { PracticeView } from './pages/practice.js';
 import { Practices } from './pages/practices.js';
 import { PlayerDetail, Players } from './pages/players.js';
 import { Teams } from './pages/teams.js';
+import { WeeklyPlan } from './pages/weekly-plan.js';
 import { Shell } from './shell/shell.js';
 import { StoreProvider, useStore } from './store/store.js';
-import './theme/global.module.css';
+import './theme/global.css';
 
+/** Redirects to the login page when the coach is not authenticated. */
 function Protected({ children }: { children: React.ReactNode }) {
-  const { loggedIn } = useStore();
+  const { loggedIn, authReady } = useStore();
+  if (!authReady) return <div style={{ padding: 48, textAlign: 'center' }}>Connecting to BPDS…</div>;
   if (!loggedIn) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 
+/** BPDS — Basketball Player Development System. */
 export function BpdsPrototype() {
   return (
     <StoreProvider>
@@ -32,6 +36,7 @@ export function BpdsPrototype() {
           <Route path="/login" element={<Login />} />
           <Route path="/dashboard" element={<Protected><Dashboard /></Protected>} />
           <Route path="/generate" element={<Protected><Generate /></Protected>} />
+          <Route path="/weekly-plan" element={<Protected><WeeklyPlan /></Protected>} />
           <Route path="/builder" element={<Protected><Builder /></Protected>} />
           <Route path="/library" element={<Protected><Library /></Protected>} />
           <Route path="/drill/:id" element={<Protected><DrillDetail /></Protected>} />

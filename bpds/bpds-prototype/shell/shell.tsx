@@ -16,11 +16,13 @@ const NAV = [
   { to: '/admin', label: 'Admin' },
 ];
 
+/** App shell with the BPDS header, navigation and footer. */
 export function Shell({ children }: { children: React.ReactNode }) {
   const { loggedIn, coach } = useStore();
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
   const bare = pathname.startsWith('/practice-mode');
+
   if (bare) return <>{children}</>;
 
   return (
@@ -28,13 +30,44 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <header className={styles.header}>
         <div className={styles.headerInner}>
           <Link to={loggedIn ? '/dashboard' : '/'} className={styles.logo}>
-            <span className={styles.logoMark}>🏀</span>
-            <span>BPDS<span className={styles.logoSub}>Player Development</span></span>
+            <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', color: '#fff' }}>
+              <span
+                style={{
+                  fontFamily: 'Arial Black, Helvetica Neue, Arial, sans-serif',
+                  fontSize: '24px',
+                  fontWeight: 900,
+                  fontStyle: 'italic',
+                  letterSpacing: '-1px',
+                  lineHeight: 0.9,
+                }}
+              >
+                BPDS
+              </span>
+              <span
+                style={{
+                  fontSize: '6px',
+                  fontWeight: 600,
+                  letterSpacing: '1.15px',
+                  textTransform: 'uppercase',
+                  whiteSpace: 'nowrap',
+                  marginTop: '4px',
+                  lineHeight: 1,
+                }}
+              >
+                BASKETBALL PLAYER DEVELOPMENT SYSTEM
+              </span>
+            </span>
           </Link>
           {loggedIn ? (
             <nav className={styles.nav}>
               {NAV.map((n) => (
-                <NavLink key={n.to} to={n.to} className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navActive : ''}`}>{n.label}</NavLink>
+                <NavLink
+                  key={n.to}
+                  to={n.to}
+                  className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navActive : ''}`}
+                >
+                  {n.label}
+                </NavLink>
               ))}
             </nav>
           ) : <div style={{ flex: 1 }} />}
@@ -45,7 +78,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
                   <Avatar name={coach.name} color="#e2571f" size={26} />
                   <span>{coach.name.split(' ')[0]}</span>
                 </Link>
-                <button type="button" className={styles.burger} onClick={() => setOpen((o) => !o)} aria-label="Menu">☰</button>
+                <button type="button" className={styles.burger} onClick={() => setOpen((o) => !o)} aria-label="Menu">
+                  ☰
+                </button>
               </>
             ) : (
               <Link to="/login" className={styles.userChip}><span>Start as Coach</span>→</Link>
@@ -55,7 +90,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
         {loggedIn ? (
           <div className={`${styles.mobileNav} ${open ? styles.mobileNavOpen : ''}`}>
             {NAV.map((n) => (
-              <NavLink key={n.to} to={n.to} onClick={() => setOpen(false)} className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navActive : ''}`}>{n.label}</NavLink>
+              <NavLink
+                key={n.to}
+                to={n.to}
+                onClick={() => setOpen(false)}
+                className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navActive : ''}`}
+              >
+                {n.label}
+              </NavLink>
             ))}
           </div>
         ) : null}

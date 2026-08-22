@@ -1,7 +1,19 @@
 # BPDS App
 
-Basketball Player Development System.
+Basketball Player Development System for youth basketball coaches.
 
-Standalone migration build: `2026.08.12-video-fix`.
+This repository contains the complete BPDS Bit workspace and a standalone Vite build for deployment.
 
-Practice Mode video compatibility: YouTube watch URLs, youtu.be URLs, Shorts, and direct MP4/WebM/MOV sources. BPDS branding is included.
+## Local verification
+
+```bash
+npm install
+npm test
+npm run build
+```
+
+The deployed application is built from `bpds/bpds-prototype`.
+
+## Security
+
+Bit Cloud tokens, MCP configuration, temporary files, local environment files, archives, and dependency folders are intentionally excluded from version control.

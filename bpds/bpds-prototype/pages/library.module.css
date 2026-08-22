@@ -1,0 +1,192 @@
+.layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.filters {
+  position: sticky;
+  top: 78px;
+}
+
+.filterGroup {
+  margin-bottom: 18px;
+}
+
+.filterGroup > div:first-child {
+  font-size: 11.5px;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--bpds-slate);
+  margin-bottom: 8px;
+}
+
+.checkRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  padding: 4px 0;
+  cursor: pointer;
+  color: var(--bpds-ink);
+}
+
+.moduleScroll {
+  max-height: 220px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.drillCard {
+  background: var(--bpds-surface);
+  border: 1px solid var(--bpds-line);
+  border-radius: var(--bpds-radius);
+  overflow: hidden;
+  box-shadow: var(--bpds-shadow);
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.15s ease, transform 0.1s ease;
+}
+
+.drillCard:hover {
+  border-color: var(--bpds-orange);
+  transform: translateY(-2px);
+}
+
+
+.thumb {
+  overflow: hidden;
+}
+
+.thumbVideo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+
+.thumbCode,
+.thumbDur {
+  z-index: 1;
+}
+
+.thumb {
+  aspect-ratio: 16 / 9;
+  background: linear-gradient(135deg, #1f2630, #3a2318);
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 28px;
+  position: relative;
+}
+
+.thumbCode {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 850;
+  letter-spacing: 0.05em;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.thumbDur {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.cardBody {
+  padding: 14px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.cardName {
+  font-size: 15.5px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  margin-bottom: 4px;
+}
+
+.cardModule {
+  font-size: 12.5px;
+  color: var(--bpds-slate);
+  margin-bottom: 10px;
+}
+
+.cardBadges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.cardWhy {
+  font-size: 12.5px;
+  color: var(--bpds-slate);
+  line-height: 1.5;
+  flex: 1;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.cardActions {
+  display: flex;
+  gap: 8px;
+}
+
+.searchBar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.mobileFilterBtn {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .filters {
+    position: static;
+    display: none;
+  }
+
+  .filtersOpen {
+    display: block;
+  }
+
+  .mobileFilterBtn {
+    display: inline-flex;
+  }
+}
