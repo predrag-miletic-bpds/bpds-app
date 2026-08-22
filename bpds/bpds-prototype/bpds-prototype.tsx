@@ -16,7 +16,7 @@ import { Teams } from './pages/teams.js';
 import { WeeklyPlan } from './pages/weekly-plan.js';
 import { Shell } from './shell/shell.js';
 import { StoreProvider, useStore } from './store/store.js';
-import './theme/global.module.css';
+import './theme/global.css';
 
 /** Redirects to the login page when the coach is not authenticated. */
 function Protected({ children }: { children: React.ReactNode }) {
