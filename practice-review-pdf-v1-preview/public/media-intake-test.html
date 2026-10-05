@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>BPDS Media Intake Test — SBH-004</title>
+<style>
+body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#0f1115;color:#f3f4f6;margin:0;padding:32px}
+.card{max-width:760px;margin:0 auto;background:#171a21;border:1px solid #2a2f3a;border-radius:18px;padding:28px}
+h1{font-size:28px;margin:0 0 8px}.muted{color:#a8b0bf}.row{margin:20px 0}.meta{background:#0f1319;border:1px solid #252b35;border-radius:12px;padding:14px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;line-height:1.5}
+input[type=file]{display:block;width:100%;padding:14px;background:#11151b;border:1px dashed #3a4352;border-radius:12px;color:#e5e7eb}
+button{padding:12px 18px;border:0;border-radius:10px;background:#f3f4f6;color:#111827;font-weight:700;cursor:pointer}
+button:disabled{opacity:.45;cursor:not-allowed}.ok{color:#74d99f}.bad{color:#ff8d8d}.warn{color:#f7d26a}
+.progress{height:8px;background:#262c35;border-radius:999px;overflow:hidden;margin-top:12px}.bar{height:100%;width:0;background:#e5e7eb;transition:width .2s}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>BPDS Media Intake Test</h1>
+  <p class="muted">Isolated test only — canonical binding for <strong>SBH-004 — Stationary Crossover</strong>.</p>
+  <div class="meta">
+    Canonical: SBH-004<br/>
+    Target filename: SBH-004_stationary-crossover_home-reference_v01.mp4<br/>
+    Expected size: 1,400,589 bytes<br/>
+    Expected SHA-256: e808079663afa5adaad85d589ad0468fb2a6c4d818d8c1d9badc850956afda41
+  </div>
+  <div class="row"><input id="file" type="file" accept="video/mp4" /><div class="progress"><div class="bar" id="bar"></div></div></div>
+  <div class="row"><button id="upload" disabled>Verify & Upload</button></div>
+  <div id="status" class="muted">Select the exact WhatsApp MP4 used for the SBH-004 test.</div>
+</div>
+<script>
+const SUPABASE_URL='https://ktroepphfkobrquwghjm.supabase.co';
+const PUBLISHABLE_KEY='sb_publishable_gNzq8fpEV9D0ynJ6L9Q8kg_0Xy_R8Ef';
+const BUCKET='bpds-media-intake-test';
+const PATH='SBH-004/SBH-004_stationary-crossover_home-reference_v01.mp4';
+const EXPECTED_SIZE=1400589;
+const EXPECTED_SHA256='e808079663afa5adaad85d589ad0468fb2a6c4d818d8c1d9badc850956afda41';
+const fileEl=document.getElementById('file'),btn=document.getElementById('upload'),status=document.getElementById('status'),bar=document.getElementById('bar');
+function hex(buffer){return [...new Uint8Array(buffer)].map(b=>b.toString(16).padStart(2,'0')).join('')}
+fileEl.addEventListener('change',()=>{btn.disabled=!fileEl.files?.length;status.className='muted';status.textContent=fileEl.files?.length?'File selected. Click Verify & Upload.':'Select the exact WhatsApp MP4 used for the SBH-004 test.'});
+btn.addEventListener('click',async()=>{
+ const file=fileEl.files?.[0]; if(!file)return; btn.disabled=true; bar.style.width='10%'; status.className='warn'; status.textContent='Checking file size and SHA-256 in your browser…';
+ try{
+   if(file.type!=='video/mp4')throw new Error('Wrong MIME type. Expected video/mp4.');
+   if(file.size!==EXPECTED_SIZE)throw new Error('File size does not match the approved SBH-004 reference video.');
+   const digest=hex(await crypto.subtle.digest('SHA-256',await file.arrayBuffer())); bar.style.width='35%';
+   if(digest!==EXPECTED_SHA256)throw new Error('SHA-256 does not match the approved SBH-004 reference video.');
+   status.textContent='File verified. Uploading directly from your browser to isolated Supabase Storage…';
+   const response=await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${PATH}`,{method:'POST',headers:{'apikey':PUBLISHABLE_KEY,'Content-Type':'video/mp4','x-upsert':'false'},body:file});
+   bar.style.width='80%'; const responseText=await response.text(); if(!response.ok)throw new Error(`Upload failed (${response.status}): ${responseText}`);
+   bar.style.width='100%';status.className='ok';status.innerHTML='UPLOAD COMPLETE. SBH-004 reference video is now physically stored in the isolated test bucket.<br><br>Return to ChatGPT and write: <strong>uploaded</strong>.';
+ }catch(e){bar.style.width='0';status.className='bad';status.textContent=e?.message||String(e);btn.disabled=false;}
+});
+</script>
+</body></html>
