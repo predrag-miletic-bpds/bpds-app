@@ -1,0 +1,8 @@
+{
+  "name":"bpds-media-intake-test-preview",
+  "private":true,
+  "version":"1.0.0",
+  "type":"module",
+  "scripts":{"build":"vite build"},
+  "devDependencies":{"vite":"^8.2.0"}
+}
