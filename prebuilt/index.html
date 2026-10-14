@@ -22,5 +22,18 @@
   </head>
   <body>
     <div id="root"><!--ssr-outlet--></div>
-  </body>
+  <script>
+/* BPDS integration preview: navigation-only, all original visual assets remain unchanged */
+document.addEventListener('click', function(event) {
+ const target=event.target instanceof Element ? event.target.closest('button,a,[role="button"]') : null;
+ if(!target) return;
+ const label=(target.innerText||target.textContent||'').toLowerCase().replace(/\\s+/g,' ').trim();
+ if(/start as coach|for coaches|i am a coach|coach login/.test(label)){
+  event.preventDefault();event.stopImmediatePropagation();window.location.href='/coach.html';return;
+ }
+ if(/start as parent|for parents|i am a parent|home practice/.test(label)){
+  event.preventDefault();event.stopImmediatePropagation();window.location.href='https://bpds-home-v2-5-home-integration-20261014-home-ol8rb9187.vercel.app/home/setup';
+ }
+},true);
+</script></body>
 </html>
