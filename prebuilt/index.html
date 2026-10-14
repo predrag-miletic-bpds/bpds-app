@@ -22,5 +22,17 @@
   </head>
   <body>
     <div id="root"><!--ssr-outlet--></div>
+  <script>
+(function(){
+ const home='https://bpds-home-v2-5-home-integration-20261014-home-ol8rb9187.vercel.app/home/setup';
+ document.addEventListener('click',function(event){
+ const el=event.target instanceof Element?event.target.closest('a,button,[role="button"]'):null;
+ if(!el)return;
+ const value=((el.innerText||el.textContent||'')+' '+(el.getAttribute('aria-label')||'')).toLowerCase().replace(/\s+/g,' ').trim();
+ if(/start as coach|for coaches|i am a coach|coach login/.test(value)){event.preventDefault();event.stopImmediatePropagation();location.assign('/coach');}
+ else if(/start as parent|for parents|i am a parent|parent login/.test(value)){event.preventDefault();event.stopImmediatePropagation();location.assign(home);}
+ },true);
+})();
+</script>
   </body>
 </html>
