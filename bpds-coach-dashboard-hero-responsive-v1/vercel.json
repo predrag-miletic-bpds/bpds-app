@@ -1,0 +1,8 @@
+{
+  "installCommand": "true",
+  "buildCommand": "true",
+  "outputDirectory": "bpds/bpds-prototype/dist",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

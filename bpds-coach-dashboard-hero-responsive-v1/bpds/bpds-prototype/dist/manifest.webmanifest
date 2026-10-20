@@ -1,0 +1,14 @@
+{
+  "name": "BPDS — Player Development",
+  "short_name": "BPDS",
+  "description": "Basketball Player Development System",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#080d11",
+  "theme_color": "#080d11",
+  "icons": [
+    { "src": "/bpds-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/bpds-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx"
+  },
+  "include": [
+    "bpds/**/*.ts",
+    "bpds/**/*.tsx",
+    "bpds-admin/**/*.ts",
+    "bpds-admin/**/*.tsx",
+    "bpds-design/**/*.ts",
+    "bpds-design/**/*.tsx",
+    "bpds-methodology/**/*.ts",
+    "bpds-methodology/**/*.tsx",
+    "bpds-people/**/*.ts",
+    "bpds-people/**/*.tsx",
+    "bpds-practices/**/*.ts",
+    "bpds-practices/**/*.tsx",
+    "bpds-storage/**/*.ts",
+    "bpds-storage/**/*.tsx"
+  ]
+}

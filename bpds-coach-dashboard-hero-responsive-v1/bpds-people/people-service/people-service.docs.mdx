@@ -1,0 +1,66 @@
+---
+title: People Service
+description: 'The BPDS people domain API — player profiles, teams and training credit, over the storage boundary.'
+labels: ['bpds', 'people', 'service', 'players', 'teams']
+---
+
+`createPeopleService` is the only way BPDS pages touch player and team data. It takes two
+repositories and returns the people domain API, so persistence can move from `localStorage`
+to a backend without a single page changing.
+
+## Creating the service
+
+```ts
+import { createBrowserDriver, createRepository } from '@predrag-miletic/bpds-storage.repository';
+import { createPeopleService } from '@predrag-miletic/bpds-people.people-service';
+
+const driver = createBrowserDriver();
+const people = createPeopleService({
+  players: createRepository(driver, 'bpds.players', []),
+  teams: createRepository(driver, 'bpds.teams', []),
+});
+```
+
+## Creating a player profile
+
+Stats, avatar colour and the active flag are filled in with BPDS defaults — the coach
+only supplies the fields on the form.
+
+```ts
+const player = people.createPlayer({
+  fullName: 'Marko Jovanović',
+  ageGroup: 'U14',
+  height: 172,
+  weight: 61,
+  position: 'Guard',
+  dominantHand: 'Right',
+  club: 'KK Partizan Youth',
+  skillLevel: 'Intermediate',
+  trainingFrequency: '4x per week',
+});
+```
+
+## Crediting a finished session
+
+When a coach finishes a session in Practice Mode, every player who trained gets the
+minutes and completed drills added to their profile totals.
+
+```ts
+people.creditSession(practice.playerIds, 90, 7);
+people.getPlayer(player.id)?.stats.completedPractices; // 1
+```
+
+## Teams
+
+```ts
+const team = people.createTeam({
+  name: 'U12 Blue',
+  club: 'KK Partizan Youth',
+  ageGroup: 'U12',
+  skillLevel: 'Beginner',
+  coach: 'Predrag Miletić',
+  playerIds: [player.id],
+});
+
+people.listTeamPlayers(team.id); // the roster, unknown ids skipped
+```

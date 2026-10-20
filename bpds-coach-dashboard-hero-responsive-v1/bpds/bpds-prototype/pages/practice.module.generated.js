@@ -1,0 +1,27 @@
+const styles = {
+  "summary": "_summary_q3mvd_1",
+  "sumItem": "_sumItem_q3mvd_8",
+  "phaseTag": "_phaseTag_q3mvd_23",
+  "item": "_item_q3mvd_44",
+  "itemDrag": "_itemDrag_q3mvd_57",
+  "dragOver": "_dragOver_q3mvd_65",
+  "thumb": "_thumb_q3mvd_70",
+  "thumbVideo": "_thumbVideo_q3mvd_83",
+  "itemBody": "_itemBody_q3mvd_91",
+  "itemMeta": "_itemMeta_q3mvd_97",
+  "itemName": "_itemName_q3mvd_104",
+  "itemCode": "_itemCode_q3mvd_110",
+  "why": "_why_q3mvd_117",
+  "itemSide": "_itemSide_q3mvd_128",
+  "durBox": "_durBox_q3mvd_135",
+  "actions": "_actions_q3mvd_165",
+  "breakItem": "_breakItem_q3mvd_172",
+  "totalBar": "_totalBar_q3mvd_177",
+  "warn": "_warn_q3mvd_203",
+  "modalBack": "_modalBack_q3mvd_214",
+  "modal": "_modal_q3mvd_214",
+  "modalHead": "_modalHead_q3mvd_234",
+  "altRow": "_altRow_q3mvd_242",
+  "altReason": "_altReason_q3mvd_253"
+};
+export default styles;

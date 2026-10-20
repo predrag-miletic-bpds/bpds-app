@@ -1,0 +1,70 @@
+---
+title: Practice Service
+description: 'The BPDS practice domain API — generation, timeline editing, Practice Mode and session history.'
+labels: ['bpds', 'practices', 'service', 'generator', 'history']
+---
+
+`createPracticeService` is the single surface BPDS pages use for practices. Generation,
+editing, running a session and history all live behind it, so pages never reach into the
+generator or into persistence directly.
+
+## Creating the service
+
+```ts
+import { createBrowserDriver, createRepository } from '@predrag-miletic/bpds-storage.repository';
+import { createPracticeService } from '@predrag-miletic/bpds-practices.practice-service';
+
+const driver = createBrowserDriver();
+const practices = createPracticeService({
+  practices: createRepository(driver, 'bpds.practices', []),
+  history: createRepository(driver, 'bpds.history', []),
+});
+```
+
+## Generating a practice
+
+The generator fills the eight BPDS phases in order, respecting age group, skill level,
+equipment, court size and player count. The result is a draft — nothing is stored until
+you save it.
+
+```ts
+const draft = practices.generate({
+  trainingType: 'Team',
+  playerIds: ['p1', 'p2'],
+  ageGroup: 'U14',
+  skillLevel: 'Intermediate',
+  duration: 90,
+  playerCount: 12,
+  baskets: 2,
+  courtSize: 'Full court',
+  equipment: ['Cones', 'Balls'],
+  primaryFocus: 'Ball Handling',
+  secondaryFocus: 'Finishing',
+  intensity: 'Medium',
+  withDefense: true,
+  competitive: true,
+  smallSidedGame: true,
+});
+
+practices.savePractice(draft);
+```
+
+## Editing the timeline
+
+Swapping a drill keeps the slot's phase and duration, so the methodological structure of
+the session is preserved.
+
+```ts
+const alternatives = practices.alternatives(currentDrill, draft);
+practices.replaceDrill(draft.id, 'item-3', alternatives[0].drill.id);
+practices.noteItem(draft.id, 'item-3', 'Emphasise the weak-hand finish.');
+```
+
+## Running and finishing a session
+
+```ts
+practices.toggleItem(draft.id, 'item-1'); // coach marks a slot done in Practice Mode
+
+const { entry } = practices.completePractice(draft.id, 'Good energy from the guards.') ?? {};
+practices.totals(); // { sessions, minutes, drills } for the dashboard
+```

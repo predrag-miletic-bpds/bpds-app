@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <style>.icon-bg{fill:#fcfcfc}.text-black{fill:#111}.accent-orange{fill:#f15a24}</style>
+  </defs>
+  <circle class="icon-bg" cx="256" cy="256" r="256"/>
+  <g transform="translate(-15,125) scale(.65) skewX(-12)">
+    <path class="text-black" d="M0 0h75c30 0 50 12 50 37 0 15-9 26-23 33 18 7 29 20 29 43 0 27-23 42-56 42H0zm46 33v27h24c9 0 14-5 14-13.5S79 33 70 33zm0 60v29h27c10 0 15-6 15-14.5S83 93 73 93z"/>
+    <path class="text-black" d="M152 0h75c33 0 55 18 55 53s-22 52-55 52h-29v50h-46zm46 34v37h25c10 0 16-7 16-18.5S233 34 223 34z"/>
+    <path class="text-black" d="M303 0h65c47 0 74 28 74 77.5S415 155 368 155h-65zm46 34v87h17c18 0 29-15 29-43.5S384 34 366 34z"/>
+    <path class="text-black" d="M533 0c39 0 65 16 68 45h-45c-2-9-10-14-23-14-14 0-23 6-23 15 0 8 8 12 28 17 35 9 64 20 64 50 0 29-30 45-73 45-48 0-73-19-76-51h45c2 13 13 20 31 20 15 0 25-7 25-16 0-10-10-14-31-19-34-8-60-19-60-48 0-28 29-44 70-44z"/>
+    <polygon class="accent-orange" points="606,0 630,0 618,33 594,33"/>
+  </g>
+</svg>

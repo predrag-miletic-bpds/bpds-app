@@ -1,0 +1,48 @@
+---
+title: Content Import
+description: 'Validates and imports drill content into the BPDS catalog, with a full report before anything is written.'
+labels: ['bpds', 'admin', 'import', 'drills', 'validation']
+---
+
+The admin panel uses this service to bring drill content into BPDS from a spreadsheet or
+JSON export. Nothing is written anywhere — `importDrills` returns a report the admin
+reviews first, so a bad file can never damage the drill catalog.
+
+## Importing a batch
+
+```ts
+import { importDrills } from '@predrag-miletic/bpds-admin.content-import';
+
+const report = importDrills(rows, { existingCodes: DRILLS.map((d) => d.code), asDraft: true });
+
+report.added;    // rows whose code is new to the catalog
+report.updated;  // rows that replace an existing drill
+report.rejected; // codes that failed validation
+report.issues;   // every error and warning, in row order
+```
+
+## What is checked
+
+Rows are rejected on hard errors — a missing required field, a code that does not follow
+the `MODULE-Lx-000` pattern, a module outside the Master Module Map, a level other than
+1–3, unknown age groups, or a duplicate code inside the batch. Softer problems come back
+as warnings and let the row through: a very short methodological justification, no
+coaching points, an unusual duration, or a code whose prefix does not match its module.
+
+```ts
+validateRow({ code: 'COD-L2-101', moduleCode: 'XYZ', ... }, 0, ['COD']);
+// [{ field: 'moduleCode', severity: 'error', message: 'Unknown module "XYZ"…' }]
+```
+
+## Completing and merging
+
+Accepted rows are completed with BPDS defaults, so every imported drill is a full record
+even when the source file was sparse. Merging is by drill code and never mutates the
+catalog you pass in.
+
+```ts
+const catalog = mergeDrills(DRILLS, report.accepted);
+```
+
+Pass `asDraft: true` to force imported drills to `published: false`, so a coach never sees
+new content before an admin has reviewed it.

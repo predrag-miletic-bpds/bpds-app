@@ -1,0 +1,8 @@
+{
+  "name": "bpds-app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build bpds/bpds-prototype --config bpds/bpds-prototype/vite.config.js"
+  }
+}
