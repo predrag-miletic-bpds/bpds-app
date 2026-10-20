@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { DRILLS, getDrill } from '@predrag-miletic/bpds-methodology.drill-catalog';
 import type { CoachDoseOverrideV1 } from '@predrag-miletic/bpds-methodology.entities.methodology';
 import { drillPhase } from '@predrag-miletic/bpds-methodology.practice-generator';
-import { resolveCoachPrescriptionV1 } from '../../../bpds-methodology/practice-prescriptions/coach-prescriptions-v1.js';
+import { prescriptionIndividualElapsedDurationRangeSecondsV1, resolveCoachPrescriptionV1 } from '../../../bpds-methodology/practice-prescriptions/coach-prescriptions-v1.js';
 import { AREAS, MODULES, getModule } from '@predrag-miletic/bpds-methodology.modules-catalog';
 import type { Practice, PracticeItem } from '../data/types.js';
 import { PlannedDoseEditor } from '../components/planned-dose-editor.js';
@@ -225,6 +225,7 @@ export function Builder() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 700 }}>{d ? `${d.code} — ${d.name}` : it.label}</div>
                     <div style={{ fontSize: 11.5, color: 'var(--bpds-slate)' }}>{it.phase}</div>
+                    {d ? (() => { const dose = it.coachPrescription ?? resolveCoachPrescriptionV1(d.id, ageGroup); if (!dose) return null; const elapsed = prescriptionIndividualElapsedDurationRangeSecondsV1(dose); return <div style={{ fontSize: 11.5, color: 'var(--bpds-ink-2)', marginTop: 3 }}>Coach {dose.ageGroup}: {dose.workText}; {dose.restText} rest · individual {elapsed.min}–{elapsed.max} s · group allocation {dose.allocatedMinutes} min</div>; })() : null}
                     {it.plannedDose ? (
                       <PlannedDoseEditor
                         item={it}
