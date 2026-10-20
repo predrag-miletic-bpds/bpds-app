@@ -10,6 +10,7 @@ import type { Practice, PracticeItem } from '../data/types.js';
 import { useStore } from '../store/store.js';
 import { Badge, Button, Card, Page, PageHead, levelInfo } from '../ui/ui.js';
 import styles from './practice.module.generated.js';
+import { formatCoachPrescriptionV1, resolveCoachPrescriptionV1 } from '../../../bpds-methodology/practice-prescriptions/coach-prescriptions-v1.js';
 
 /** Generated / saved practice plan view with full customization. */
 export function PracticeView() {
@@ -271,6 +272,7 @@ export function PracticeView() {
 
       {displayItems.map((item, index) => {
         const drill = item.drillId ? getDrill(item.drillId) : undefined;
+        const coachPrescription = item.coachPrescription ?? resolveCoachPrescriptionV1(item.drillId, plan.ageGroup);
         const showPhase = item.phase !== lastPhase;
         lastPhase = item.phase;
         const li = drill ? levelInfo(drill.level) : null;
@@ -329,6 +331,12 @@ export function PracticeView() {
                       <div className={styles.why}>
                         <b>Equipment.</b> {drill.equipment.join(', ')}
                       </div>
+                      {coachPrescription ? (
+                        <div className={styles.why}>
+                          <b>Locked Coach dosage ({coachPrescription.ageGroup}).</b>{' '}
+                          {formatCoachPrescriptionV1(coachPrescription)}
+                        </div>
+                      ) : null}
                     </>
                   ) : (
                     <>

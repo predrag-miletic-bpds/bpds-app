@@ -11,6 +11,7 @@ import type { AgeGroup } from '../data/types.js';
 import { useStore } from '../store/store.js';
 import { Badge, Button, Card, Input, Page, PageHead, Select, levelInfo } from '../ui/ui.js';
 import styles from './library.module.generated.js';
+import { coachPrescriptionForDrillV1 } from '../../../bpds-methodology/practice-prescriptions/coach-prescriptions-v1.js';
 
 const AGE_GROUPS: AgeGroup[] = ['U8', 'U10', 'U12', 'U14', 'U16', 'U18', 'Senior', 'Professional'];
 
@@ -174,7 +175,7 @@ export function Library() {
                   <DrillVideo drill={d} preview className={styles.thumbVideo} />
                     <span className={styles.thumbCode}>{d.code}</span>
                     
-                    <span className={styles.thumbDur}>{d.duration} min</span>
+                    <span className={styles.thumbDur}>{d.duration} min allocated</span>
                   </div>
                   <div className={styles.cardBody}>
                     <div className={styles.cardName}>{d.name}</div>
@@ -186,6 +187,12 @@ export function Library() {
                       {d.bpdsOriginal ? <Badge tone="dark">BPDS</Badge> : null}
                     </div>
                     <div className={styles.cardWhy}>{d.whyThisDrill}</div>
+                    {coachPrescriptionForDrillV1(d.id).length ? (
+                      <div style={{ fontSize: 11.5, color: 'var(--bpds-slate)', lineHeight: 1.45 }}>
+                        <b>Locked Coach dosage:</b>{' '}
+                        {coachPrescriptionForDrillV1(d.id).map((dose) => `${dose.ageGroup}: ${dose.workText}, ${dose.restText} rest`).join(' · ')}
+                      </div>
+                    ) : null}
                     <div className={styles.cardActions}>
                       <Button size="sm" variant="secondary" onClick={() => navigate(`/drill/${d.id}`)}>View Drill</Button>
                       <Button size="sm" onClick={() => addToPractice(d.id)}>Add to Practice</Button>

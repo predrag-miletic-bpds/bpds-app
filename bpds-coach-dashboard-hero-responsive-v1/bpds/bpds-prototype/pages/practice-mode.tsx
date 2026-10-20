@@ -6,6 +6,7 @@ import { useStore } from '../store/store.js';
 import styles from './practice-mode.module.generated.js';
 import { adjustSessionDuration, blockSessionDuration, formatPracticeSeconds, practiceSessionDuration, sessionDurationSeconds, withPracticeBlocks } from '../data/practice-blocks.js';
 import type { PracticeBlock, PracticeDrillItem } from '../data/practice-blocks.js';
+import { formatCoachPrescriptionV1, resolveCoachPrescriptionV1 } from '@predrag-miletic/bpds-methodology.practice-prescriptions';
 
 /** Format seconds as mm:ss. */
 function fmt(sec: number): string {
@@ -108,6 +109,7 @@ export function PracticeMode() {
   }
 
   const drill = item?.drillId ? getDrill(item.drillId) : undefined;
+  const coachPrescription = item?.coachPrescription ?? (item?.drillId ? resolveCoachPrescriptionV1(item.drillId, plan.ageGroup) : undefined);
   const hasVideo = Boolean((drill as any)?.videoUrl);
   const hasDiagram = Boolean((drill as any)?.diagramUrl);
   const MEDIA_TABS = ['video', 'diagram'] as const;
@@ -233,6 +235,7 @@ export function PracticeMode() {
           <span className={styles.pill}>Block {formatPracticeSeconds(currentBlockSeconds)}</span>
           <span className={styles.pill}>Total {formatPracticeSeconds(currentPracticeSeconds)}</span>
         </div>
+        {coachPrescription ? <div style={{ marginTop: 12, color: '#c9d2e3', lineHeight: 1.45 }}><b>Locked Coach dosage.</b> {formatCoachPrescriptionV1(coachPrescription)} Active execution is separate from the allocated group time shown above.</div> : null}
         {drill ? (
           <div>
                           <div style={{ display: 'flex', gap: 8, marginTop: 14, marginBottom: 10 }} aria-label="Practice media">

@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react';
+import type { CoachDrillPrescriptionV1 } from '@predrag-miletic/bpds-methodology.practice-prescriptions';
+import { formatCoachPrescriptionV1 } from '@predrag-miletic/bpds-methodology.practice-prescriptions';
 
 /** QR image backed by the stable BPDS URL rather than a copied/static image. */
 export function QrCode({ url, label }: { url: string; label: string }) {
@@ -24,7 +26,7 @@ export function PrintField({ label, children }: { label: string; children?: Reac
   return <div className="printField"><span>{label}</span><b>{children || '—'}</b></div>;
 }
 
-export function DrillCard({ drill, duration, url }: { drill: any; duration?: number; url: string }) {
+export function DrillCard({ drill, duration, url, coachPrescription }: { drill: any; duration?: number; url: string; coachPrescription?: CoachDrillPrescriptionV1 }) {
   return (
     <section className="drillCard printBreakAvoid">
       <div className="drillCardHead">
@@ -41,6 +43,7 @@ export function DrillCard({ drill, duration, url }: { drill: any; duration?: num
       {drill.coachingPoints?.length ? <PrintList title="Coaching points" items={drill.coachingPoints} /> : null}
       {drill.commonMistakes?.length ? <PrintList title="Common mistakes" items={drill.commonMistakes} /> : null}
       <div className="printFacts">
+        {coachPrescription ? <PrintField label="Locked Coach dosage">{formatCoachPrescriptionV1(coachPrescription)}</PrintField> : null}
         {drill.equipment?.length ? <PrintField label="Equipment">{drill.equipment.join(', ')}</PrintField> : null}
         {drill.repetitions ? <PrintField label="Repetitions">{drill.repetitions}</PrintField> : null}
         {drill.workTime ? <PrintField label="Work time">{drill.workTime}</PrintField> : null}

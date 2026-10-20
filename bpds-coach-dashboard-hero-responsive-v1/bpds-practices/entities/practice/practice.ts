@@ -1,6 +1,7 @@
 import type { AgeGroup, Intensity, Phase, PlayerSkillLevel, TrainingType } from '@predrag-miletic/bpds-storage.entities.shared-types';
 import type { AthleticFocus } from '@predrag-miletic/bpds-methodology.entities.methodology';
 import type { PlannedDoseEnvelopeV1 } from './planned-dose-v1.js';
+import type { CoachDrillPrescriptionV1 } from '../../../bpds-methodology/practice-prescriptions/coach-prescriptions-v1.js';
 
 /** One entry on a practice timeline — either a drill or a break. */
 export type PracticeItem = {
@@ -22,6 +23,8 @@ export type PracticeItem = {
   completed?: boolean;
   /** Optional BPDS recommendation, explicit coach override and resolved effective dose. */
   plannedDose?: PlannedDoseEnvelopeV1;
+  /** Optional locked Coach prescription resolved for this item's age group. */
+  coachPrescription?: CoachDrillPrescriptionV1;
 };
 
 /** The coach's training context, used as the generator input. */

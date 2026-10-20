@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { DRILLS, getDrill } from '@predrag-miletic/bpds-methodology.drill-catalog';
 import type { CoachDoseOverrideV1 } from '@predrag-miletic/bpds-methodology.entities.methodology';
 import { drillPhase } from '@predrag-miletic/bpds-methodology.practice-generator';
+import { resolveCoachPrescriptionV1 } from '../../../bpds-methodology/practice-prescriptions/coach-prescriptions-v1.js';
 import { AREAS, MODULES, getModule } from '@predrag-miletic/bpds-methodology.modules-catalog';
 import type { Practice, PracticeItem } from '../data/types.js';
 import { PlannedDoseEditor } from '../components/planned-dose-editor.js';
@@ -44,7 +45,9 @@ export function Builder() {
   const addDrill = (drillId: string) => {
     const d = getDrill(drillId);
     if (!d) return;
-    setItems((prev) => [...prev, { id: `i-${Date.now()}-${prev.length}`, kind: 'drill', drillId, duration: d.duration, phase: drillPhase(d) }]);
+    const ageGroup = selectedTeam?.ageGroup ?? source?.ageGroup ?? 'U16';
+    const coachPrescription = resolveCoachPrescriptionV1(drillId, ageGroup);
+    setItems((prev) => [...prev, { id: `i-${Date.now()}-${prev.length}`, kind: 'drill', drillId, duration: d.duration, phase: drillPhase(d), ...(coachPrescription ? { coachPrescription } : {}) }]);
   };
 
   const addBlock = (label: string, duration: number) => {

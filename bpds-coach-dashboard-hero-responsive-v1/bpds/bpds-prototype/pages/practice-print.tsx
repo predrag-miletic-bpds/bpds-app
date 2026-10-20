@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { getDrill } from '@predrag-miletic/bpds-methodology.drill-catalog';
 import { useStore } from '../store/store.js';
 import { DrillCard, PrintField, PrintList, PrintSection, PrintToolbar, QrCode } from './print-shared.js';
+import { resolveCoachPrescriptionV1 } from '@predrag-miletic/bpds-methodology.practice-prescriptions';
 import './print.css';
 
 /** Printable Coach Sheet and optional Drill Cards for one Practice snapshot. */
@@ -52,7 +53,7 @@ export function PracticePrint() {
       </section>)}
       <div className="printTotal"><span>TOTAL</span><span>{plan.items.reduce((sum, item) => sum + item.duration, 0)} MIN</span></div>
       </section>
-      {cards.length ? <div className="drillCards">{cards.map((drill, index) => <section className="printSheet printCardSheet" key={drill!.id}><h1 className="printCardsTitle">DRILL INSTRUCTIONS{cards.length > 1 ? ` · ${index + 1}/${cards.length}` : ''}</h1><DrillCard drill={drill} duration={plan.items.find((item) => item.drillId === drill!.id)?.duration} url={`${window.location.origin}/drill/${drill!.id}`} /></section>)}</div> : null}
+      {cards.length ? <div className="drillCards">{cards.map((drill, index) => { const item = plan.items.find((candidate) => candidate.drillId === drill!.id); const coachPrescription = item?.coachPrescription ?? resolveCoachPrescriptionV1(drill!.id, plan.ageGroup); return <section className="printSheet printCardSheet" key={drill!.id}><h1 className="printCardsTitle">DRILL INSTRUCTIONS{cards.length > 1 ? ` · ${index + 1}/${cards.length}` : ''}</h1><DrillCard drill={drill} duration={item?.duration} coachPrescription={coachPrescription} url={`${window.location.origin}/drill/${drill!.id}`} /></section>; })}</div> : null}
     </main>
   </div>;
 }

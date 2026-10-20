@@ -26,6 +26,7 @@ import {
   normalizeDrillGeneratorMetadata,
   PROGRESSION_STAGE_ORDER,
 } from './generator-engine-v1.js';
+import { resolveCoachPrescriptionV1 } from '../practice-prescriptions/coach-prescriptions-v1.js';
 
 /** Read-only guidance supplied only while materializing a coordinated week. */
 export type WeeklyProgrammingGuidance = {
@@ -598,7 +599,11 @@ export function generatePractice(ctx: HistoryAwareGeneratorContext): Practice {
     });
   }
 
-  const normalizedItems = normalizePracticeItems(items);
+  const normalizedItems = normalizePracticeItems(items).map((item) => {
+    if (item.kind !== 'drill') return item;
+    const coachPrescription = resolveCoachPrescriptionV1(item.drillId, ctx.ageGroup);
+    return coachPrescription ? { ...item, coachPrescription } : item;
+  });
 
   if (ctx.duration >= 60 && normalizedItems.length > 4) {
     insertWaterBreakAtModuleBoundary(normalizedItems);

@@ -17,6 +17,7 @@ export default defineConfig({
       '@predrag-miletic/bpds-methodology.drill-catalog': new URL('../../bpds-methodology/drill-catalog/index.ts', import.meta.url).pathname,
       '@predrag-miletic/bpds-methodology.modules-catalog': new URL('../../bpds-methodology/modules-catalog/index.ts', import.meta.url).pathname,
       '@predrag-miletic/bpds-methodology.practice-generator': new URL('../../bpds-methodology/practice-generator/index.ts', import.meta.url).pathname,
+      '@predrag-miletic/bpds-methodology.practice-prescriptions': new URL('../../bpds-methodology/practice-prescriptions/index.ts', import.meta.url).pathname,
     },
   },
 });    

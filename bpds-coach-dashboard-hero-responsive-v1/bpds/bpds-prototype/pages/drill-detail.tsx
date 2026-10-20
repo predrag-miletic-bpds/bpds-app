@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { DrillDiagramImage, DrillVideo, useDrills } from '../data/drill-media.js';
 import { getModule } from '@predrag-miletic/bpds-methodology.modules-catalog';
+import { coachPrescriptionForDrillV1, resolveCoachPrescriptionV1 } from '../../../bpds-methodology/practice-prescriptions/coach-prescriptions-v1.js';
 import { useStore } from '../store/store.js';
 import { Badge, Button, Card, Page, PageHead, SectionTitle, levelInfo } from '../ui/ui.js';
 
@@ -99,9 +100,10 @@ export function DrillDetail() {
 
   const addToPractice = () => {
     if (!draft) { void navigate('/builder'); return; }
+    const coachPrescription = resolveCoachPrescriptionV1(drill.id, draft.ageGroup);
     setDraft({
       ...draft,
-      items: [...draft.items, { id: `i-${Date.now()}`, kind: 'drill', drillId: drill.id, duration: drill.duration, phase: 'Technical Skill Development' }],
+      items: [...draft.items, { id: `i-${Date.now()}`, kind: 'drill', drillId: drill.id, duration: drill.duration, phase: 'Technical Skill Development', ...(coachPrescription ? { coachPrescription } : {}) }],
     });
     void navigate('/practice/draft');
   };
@@ -170,10 +172,21 @@ export function DrillDetail() {
               <Row k="Equipment" v={drill.equipment.join(', ')} />
               <Row k="Players" v={`${drill.minPlayers}–${drill.maxPlayers}`} />
               <Row k="Court area" v={drill.courtArea.join(', ')} />
-              <Row k="Repetitions" v={drill.repetitions} />
-              <Row k="Work time" v={drill.workTime} />
-              <Row k="Rest time" v={drill.restTime} />
-              <Row k="Estimated duration" v={`${drill.duration} minutes`} />
+              {coachPrescriptionForDrillV1(drill.id).length ? (
+                <>
+                  <Row k="Coach dosage" v="Locked age-specific prescription" />
+                  {coachPrescriptionForDrillV1(drill.id).map((dose) => (
+                    <Row key={dose.ageGroup} k={dose.ageGroup} v={`${dose.workText}; ${dose.restText} rest; ${dose.allocationText}`} />
+                  ))}
+                </>
+              ) : (
+                <>
+                  <Row k="Repetitions" v={drill.repetitions} />
+                  <Row k="Work time" v={drill.workTime} />
+                  <Row k="Rest time" v={drill.restTime} />
+                </>
+              )}
+              <Row k="Allocated group time" v={`${drill.duration} minutes`} />
             </div>
           </Card>
 
