@@ -6,7 +6,7 @@ import { useStore } from '../store/store.js';
 import styles from './practice-mode.module.generated.js';
 import { adjustSessionDuration, blockSessionDuration, formatPracticeSeconds, practiceSessionDuration, sessionDurationSeconds, withPracticeBlocks } from '../data/practice-blocks.js';
 import type { PracticeBlock, PracticeDrillItem } from '../data/practice-blocks.js';
-import { formatCoachPrescriptionV1, resolveCoachPrescriptionV1 } from '@predrag-miletic/bpds-methodology.practice-prescriptions';
+import { prescriptionExactTimerSecondsV1, prescriptionIndividualElapsedDurationRangeSecondsV1, resolveCoachPrescriptionV1 } from '@predrag-miletic/bpds-methodology.practice-prescriptions';
 
 /** Format seconds as mm:ss. */
 function fmt(sec: number): string {
@@ -58,13 +58,16 @@ export function PracticeMode() {
 
   const [sessionOverrides, setSessionOverrides] = useState<Record<string, number>>({});
   const item = drillItems[index];
-  const currentSessionSeconds = sessionDurationSeconds(item, sessionOverrides);
+  const itemPrescription = item?.coachPrescription ?? (item?.drillId ? resolveCoachPrescriptionV1(item.drillId, plan?.ageGroup) : undefined);
+  const prescriptionTimerSeconds = itemPrescription ? prescriptionExactTimerSecondsV1(itemPrescription) : undefined;
+  const timerConfigured = !itemPrescription || prescriptionTimerSeconds !== undefined;
+  const currentSessionSeconds = prescriptionTimerSeconds ?? (itemPrescription ? 0 : sessionDurationSeconds(item, sessionOverrides));
 
   useEffect(() => {
-    setLeft(sessionDurationSeconds(item, sessionOverrides));
+    setLeft(currentSessionSeconds);
     setRunning(false);
     setMediaMode('video');
-  }, [index, item?.id]);
+  }, [index, item?.id, currentSessionSeconds]);
 
   useEffect(() => {
     if (!running) return undefined;
@@ -109,7 +112,8 @@ export function PracticeMode() {
   }
 
   const drill = item?.drillId ? getDrill(item.drillId) : undefined;
-  const coachPrescription = item?.coachPrescription ?? (item?.drillId ? resolveCoachPrescriptionV1(item.drillId, plan.ageGroup) : undefined);
+  const coachPrescription = itemPrescription;
+  const individualElapsedRange = coachPrescription ? prescriptionIndividualElapsedDurationRangeSecondsV1(coachPrescription) : undefined;
   const hasVideo = Boolean((drill as any)?.videoUrl);
   const hasDiagram = Boolean((drill as any)?.diagramUrl);
   const MEDIA_TABS = ['video', 'diagram'] as const;
@@ -235,7 +239,15 @@ export function PracticeMode() {
           <span className={styles.pill}>Block {formatPracticeSeconds(currentBlockSeconds)}</span>
           <span className={styles.pill}>Total {formatPracticeSeconds(currentPracticeSeconds)}</span>
         </div>
-        {coachPrescription ? <div style={{ marginTop: 12, color: '#c9d2e3', lineHeight: 1.45 }}><b>Locked Coach dosage.</b> {formatCoachPrescriptionV1(coachPrescription)} Active execution is separate from the allocated group time shown above.</div> : null}
+        {coachPrescription ? (
+          <div style={{ marginTop: 10, color: '#c9d2e3', lineHeight: 1.35, display: 'grid', gap: 3 }}>
+            <b>Coach dosage · {coachPrescription.ageGroup}</b>
+            <span>{coachPrescription.workText} · {coachPrescription.restText} rest between bouts</span>
+            <span>Active work: {coachPrescription.bouts.min === coachPrescription.bouts.max ? `${coachPrescription.bouts.min}` : `${coachPrescription.bouts.min}–${coachPrescription.bouts.max}`} bouts · {coachPrescription.workSeconds.min}–{coachPrescription.workSeconds.max} s each</span>
+            <span>Individual elapsed: {individualElapsedRange?.min}–{individualElapsedRange?.max} s · Group allocation: {coachPrescription.allocatedMinutes} min</span>
+            {!timerConfigured ? <span style={{ color: '#ffb36b' }}>Timer configuration remains a range; no exact value is selected automatically.</span> : null}
+          </div>
+        ) : null}
         {drill ? (
           <div>
                           <div style={{ display: 'flex', gap: 8, marginTop: 14, marginBottom: 10 }} aria-label="Practice media">
@@ -262,24 +274,24 @@ export function PracticeMode() {
         ) : null}
 
         <div className={styles.timeAdjust}>
-          <button type="button" onClick={() => adjustTime(-15)} disabled={!item || currentSessionSeconds <= 0}>−15 sec</button>
-          <span>{formatPracticeSeconds(currentSessionSeconds)}</span>
-          <button type="button" onClick={() => adjustTime(15)} disabled={!item}>+15 sec</button>
+          <button type="button" onClick={() => adjustTime(-15)} disabled={!item || !timerConfigured || currentSessionSeconds <= 0}>−15 sec</button>
+          <span>{timerConfigured ? formatPracticeSeconds(currentSessionSeconds) : 'Range only'}</span>
+          <button type="button" onClick={() => adjustTime(15)} disabled={!item || !timerConfigured}>+15 sec</button>
         </div>
         <div className={styles.timer}>
-          <div className={styles.time} style={{ color: left < 0 ? '#ff7a5c' : '#fff' }}>{fmt(left)}</div>
+          <div className={styles.time} style={{ color: left < 0 ? '#ff7a5c' : '#fff' }}>{timerConfigured ? fmt(left) : '—:—'}</div>
           <div className={styles.timerActions}>
-            <button type="button" className={`${styles.tbtn} ${running ? '' : styles.tbtnPrimary}`} onClick={() => setRunning((r) => !r)}>
-              {running ? '⏸ Pause' : left > 0 && left < currentSessionSeconds ? '▶ Resume' : '▶ Start'}
+            <button type="button" disabled={!timerConfigured} className={`${styles.tbtn} ${running ? '' : styles.tbtnPrimary}`} onClick={() => setRunning((r) => !r)}>
+              {timerConfigured ? (running ? '⏸ Pause' : left > 0 && left < currentSessionSeconds ? '▶ Resume' : '▶ Start') : 'Configure exact timer'}
             </button>
-            <button type="button" className={styles.tbtn} onClick={() => { setRunning(false); setLeft(currentSessionSeconds); }}>↻ Reset</button>
+            <button type="button" disabled={!timerConfigured} className={styles.tbtn} onClick={() => { setRunning(false); setLeft(currentSessionSeconds); }}>↻ Reset</button>
           </div>
         </div>
 
         <div className={styles.secondaryRow}>
           <button type="button" className={styles.sbtn} onClick={() => setNoteOpen((o) => !o)}>📝 Quick Note</button>
           <button type="button" className={styles.sbtn} onClick={() => go(1)}>⤼ Skip Drill</button>
-          {drill ? <button type="button" className={styles.sbtn} onClick={() => navigate(`/drill/${drill.id}`, { state: { returnTo: `/practice-mode/${id}?drill=${index}` } })}>↗ Full Detail</button> : null}
+          {drill ? <button type="button" className={styles.sbtn} onClick={() => navigate(`/drill/${drill.id}`, { state: { returnTo: `/practice-mode/${id}?drill=${index}`, ageGroup: plan.ageGroup } })}>↗ Full Detail</button> : null}
         </div>
 
         {noteOpen ? (

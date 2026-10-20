@@ -10,7 +10,7 @@ import type { Practice, PracticeItem } from '../data/types.js';
 import { useStore } from '../store/store.js';
 import { Badge, Button, Card, Page, PageHead, levelInfo } from '../ui/ui.js';
 import styles from './practice.module.generated.js';
-import { formatCoachPrescriptionV1, resolveCoachPrescriptionV1 } from '../../../bpds-methodology/practice-prescriptions/coach-prescriptions-v1.js';
+import { prescriptionActiveWorkDurationRangeSecondsV1, prescriptionIndividualElapsedDurationRangeSecondsV1, resolveCoachPrescriptionV1 } from '../../../bpds-methodology/practice-prescriptions/coach-prescriptions-v1.js';
 
 /** Generated / saved practice plan view with full customization. */
 export function PracticeView() {
@@ -333,8 +333,8 @@ export function PracticeView() {
                       </div>
                       {coachPrescription ? (
                         <div className={styles.why}>
-                          <b>Locked Coach dosage ({coachPrescription.ageGroup}).</b>{' '}
-                          {formatCoachPrescriptionV1(coachPrescription)}
+                          <b>Coach dosage ({coachPrescription.ageGroup}).</b>{' '}
+                          {coachPrescription.workText}; {coachPrescription.restText} rest between bouts. Active work {prescriptionActiveWorkDurationRangeSecondsV1(coachPrescription).min}–{prescriptionActiveWorkDurationRangeSecondsV1(coachPrescription).max} s; individual elapsed {prescriptionIndividualElapsedDurationRangeSecondsV1(coachPrescription).min}–{prescriptionIndividualElapsedDurationRangeSecondsV1(coachPrescription).max} s. Group allocation {coachPrescription.allocatedMinutes} min.
                         </div>
                       ) : null}
                     </>
@@ -363,7 +363,7 @@ export function PracticeView() {
                   {drill ? (
                     <Button
                       size="sm"
-                      onClick={() => navigate(`/drill/${drill.id}`)}
+                      onClick={() => navigate(`/drill/${drill.id}`, { state: { ageGroup: plan.ageGroup } })}
                     >
                       View Drill
                     </Button>

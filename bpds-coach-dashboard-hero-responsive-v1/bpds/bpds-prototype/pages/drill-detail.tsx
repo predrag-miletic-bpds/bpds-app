@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { DrillDiagramImage, DrillVideo, useDrills } from '../data/drill-media.js';
 import { getModule } from '@predrag-miletic/bpds-methodology.modules-catalog';
-import { coachPrescriptionForDrillV1, resolveCoachPrescriptionV1 } from '../../../bpds-methodology/practice-prescriptions/coach-prescriptions-v1.js';
+import { COACH_PRESCRIPTION_AGE_GROUPS, coachPrescriptionForDrillV1, resolveCoachPrescriptionV1 } from '../../../bpds-methodology/practice-prescriptions/coach-prescriptions-v1.js';
 import { useStore } from '../store/store.js';
 import { Badge, Button, Card, Page, PageHead, SectionTitle, levelInfo } from '../ui/ui.js';
 
@@ -77,9 +77,12 @@ export function DrillDetail() {
   const navigate = useNavigate();
   const location = useLocation();
   const returnTo = (location.state as { returnTo?: string } | null)?.returnTo;
+  const openedForAge = (location.state as { ageGroup?: string } | null)?.ageGroup;
   const drills = useDrills();
   const getDrill = (drillId: string) => drills.find((item) => item.id === drillId);
   const { draft, setDraft, markDrillViewed } = useStore();
+  const [selectedAge, setSelectedAge] = useState(() => COACH_PRESCRIPTION_AGE_GROUPS.includes((openedForAge ?? draft?.ageGroup) as any) ? (openedForAge ?? draft?.ageGroup)! : 'U10');
+  const [showAllAges, setShowAllAges] = useState(false);
   const drill = getDrill(id ?? '');
 
   const drillId = drill?.id;
@@ -97,6 +100,8 @@ export function DrillDetail() {
   const next = drills[index + 1];
   const mod = getModule(drill.moduleCode);
   const li = levelInfo(drill.level);
+  const coachDoses = coachPrescriptionForDrillV1(drill.id);
+  const selectedCoachDose = resolveCoachPrescriptionV1(drill.id, selectedAge as any);
 
   const addToPractice = () => {
     if (!draft) { void navigate('/builder'); return; }
@@ -172,12 +177,26 @@ export function DrillDetail() {
               <Row k="Equipment" v={drill.equipment.join(', ')} />
               <Row k="Players" v={`${drill.minPlayers}–${drill.maxPlayers}`} />
               <Row k="Court area" v={drill.courtArea.join(', ')} />
-              {coachPrescriptionForDrillV1(drill.id).length ? (
+              {coachDoses.length ? (
                 <>
-                  <Row k="Coach dosage" v="Locked age-specific prescription" />
-                  {coachPrescriptionForDrillV1(drill.id).map((dose) => (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+                    <b>Coach dosage</b>
+                    <button type="button" onClick={() => setShowAllAges((value) => !value)} style={{ border: 0, background: 'transparent', color: 'var(--bpds-orange)', fontWeight: 800, cursor: 'pointer' }}>{showAllAges ? 'Selected age' : 'View all ages'}</button>
+                  </div>
+                  {!showAllAges ? (
+                    <div style={{ display: 'grid', gap: 8 }}>
+                      <label style={{ display: 'grid', gap: 4, fontSize: 12, fontWeight: 800, color: 'var(--bpds-slate)' }}>
+                        Age group
+                        <select value={selectedAge} onChange={(event) => setSelectedAge(event.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--bpds-line)', background: 'var(--bpds-surface)', color: 'var(--bpds-ink)', fontWeight: 700 }}>
+                          {COACH_PRESCRIPTION_AGE_GROUPS.map((age) => <option key={age} value={age}>{age}</option>)}
+                        </select>
+                      </label>
+                      {selectedCoachDose ? <Row k={selectedCoachDose.ageGroup} v={`${selectedCoachDose.workText}; ${selectedCoachDose.restText} rest; ${selectedCoachDose.allocationText}`} /> : null}
+                    </div>
+                  ) : null}
+                  {showAllAges ? coachDoses.map((dose) => (
                     <Row key={dose.ageGroup} k={dose.ageGroup} v={`${dose.workText}; ${dose.restText} rest; ${dose.allocationText}`} />
-                  ))}
+                  )) : null}
                 </>
               ) : (
                 <>

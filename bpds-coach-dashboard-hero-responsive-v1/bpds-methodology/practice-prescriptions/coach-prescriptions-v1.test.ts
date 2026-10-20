@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveCoachPrescriptionV1, prescriptionActiveDurationRangeSecondsV1 } from './coach-prescriptions-v1';
+import { resolveCoachPrescriptionV1, prescriptionActiveDurationRangeSecondsV1, prescriptionActiveWorkDurationRangeSecondsV1, prescriptionExactTimerSecondsV1, prescriptionIndividualElapsedDurationRangeSecondsV1 } from './coach-prescriptions-v1';
 
 describe('locked Coach Body Wraps adapter', () => {
   it.each([
@@ -11,5 +11,15 @@ describe('locked Coach Body Wraps adapter', () => {
     expect(prescription?.allocatedMinutes).toBe(allocation);
     expect(prescription?.workText).toBe(workText);
     expect(prescriptionActiveDurationRangeSecondsV1(prescription!)).toEqual(expect.objectContaining({ min: expect.any(Number), max: expect.any(Number) }));
+  });
+
+  it('keeps U10 individual timing separate from the 4-minute group allocation', () => {
+    const prescription = resolveCoachPrescriptionV1('bm-l1-001', 'U10')!;
+    expect(prescription.bouts).toEqual({ min: 2, max: 2 });
+    expect(prescriptionActiveWorkDurationRangeSecondsV1(prescription)).toEqual({ min: 40, max: 50 });
+    expect(prescriptionIndividualElapsedDurationRangeSecondsV1(prescription)).toEqual({ min: 55, max: 75 });
+    expect(prescriptionActiveDurationRangeSecondsV1(prescription)).toEqual({ min: 55, max: 75 });
+    expect(prescriptionExactTimerSecondsV1(prescription)).toBeUndefined();
+    expect(prescription.allocatedMinutes).toBe(4);
   });
 });
