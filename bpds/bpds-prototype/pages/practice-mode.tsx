@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { normalizePracticeItems } from '@predrag-miletic/bpds-methodology.practice-generator';
+import { DrillDiagramImage, DrillVideo, useDrills } from '../data/drill-media.js';
 import { useStore } from '../store/store.js';
-import styles from './practice-mode.module.css';
-
-const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL ?? '');
-const SUPABASE_KEY = String(import.meta.env.VITE_SUPABASE_ANON_KEY ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? '');
-const SUPABASE_PROJECT_REF = SUPABASE_URL.match(/^https:\/\/([^.]+)\.supabase\.co/i)?.[1] ?? '';
+import styles from './practice-mode.module.generated.js';
+import { adjustSessionDuration, blockSessionDuration, formatPracticeSeconds, practiceSessionDuration, sessionDurationSeconds, withPracticeBlocks } from '../data/practice-blocks.js';
+import type { PracticeBlock, PracticeDrillItem } from '../data/practice-blocks.js';
+import { formatCoachPrescriptionV1, resolveCoachPrescriptionV1 } from '@predrag-miletic/bpds-methodology.practice-prescriptions';
 
 /** Format seconds as mm:ss. */
 function fmt(sec: number): string {
@@ -14,165 +15,40 @@ function fmt(sec: number): string {
   return `${sec < 0 ? '-' : ''}${m}:${String(s).padStart(2, '0')}`;
 }
 
-/** Convert common YouTube URLs to the embeddable player URL. */
-function getYouTubeEmbedUrl(url: string): string | undefined {
-  try {
-    const parsed = new URL(url);
-    const host = parsed.hostname.replace(/^www\./, '').toLowerCase();
-
-    if (host === 'youtu.be') {
-      const id = parsed.pathname.split('/').filter(Boolean)[0];
-      return id ? `https://www.youtube.com/embed/${id}` : undefined;
-    }
-
-    if (host === 'youtube.com' || host === 'm.youtube.com') {
-      if (parsed.pathname === '/watch') {
-        const id = parsed.searchParams.get('v');
-        return id ? `https://www.youtube.com/embed/${id}` : undefined;
-      }
-      if (parsed.pathname.startsWith('/shorts/')) {
-        const id = parsed.pathname.split('/')[2];
-        return id ? `https://www.youtube.com/embed/${id}` : undefined;
-      }
-      if (parsed.pathname.startsWith('/embed/')) return url;
-    }
-  } catch {
-    return undefined;
-  }
-
-  return undefined;
-}
-
-function isDirectVideoUrl(url: string): boolean {
-  try {
-    const pathname = new URL(url).pathname.toLowerCase();
-    return ['.mp4', '.webm', '.ogg', '.mov', '.m4v'].some((ext) => pathname.endsWith(ext));
-  } catch {
-    return false;
-  }
-}
-
-function getSupabaseAccessToken(): string | undefined {
-  for (let i = 0; i < localStorage.length; i += 1) {
-    const key = localStorage.key(i) ?? '';
-    if (key !== `sb-${SUPABASE_PROJECT_REF}-auth-token` && !(key.includes(SUPABASE_PROJECT_REF) && key.includes('auth-token'))) continue;
-    try {
-      const value = JSON.parse(localStorage.getItem(key) ?? '{}');
-      return value?.access_token ?? value?.currentSession?.access_token ?? value?.session?.access_token;
-    } catch {
-      // Ignore malformed unrelated local-storage values.
-    }
-  }
-  return undefined;
-}
-
-async function resolveVideoUrl(url?: string): Promise<string | undefined> {
-  if (!url || !url.startsWith('supabase://')) return url;
-
-  const match = url.match(/^supabase:\/\/([^/]+)\/(.+)$/i);
-  const accessToken = getSupabaseAccessToken();
-  if (!match || !accessToken) return undefined;
-
-  const [, bucket, objectPath] = match;
-  const encodedPath = objectPath.split('/').map(encodeURIComponent).join('/');
-  const response = await fetch(`${SUPABASE_URL}/storage/v1/object/sign/${encodeURIComponent(bucket)}/${encodedPath}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify({ expiresIn: 3600 }),
-  });
-
-  if (!response.ok) return undefined;
-  const data = await response.json();
-  const signedUrl = data?.signedURL ?? data?.signedUrl;
-  if (!signedUrl) return undefined;
-  return signedUrl.startsWith('/') ? `${SUPABASE_URL}/storage/v1${signedUrl}` : signedUrl;
-}
-
-/** Video player used by Practice Mode. */
-function DrillVideo({ url, title }: { url?: string; title: string }) {
-  const [resolvedUrl, setResolvedUrl] = useState<string | undefined>(url?.startsWith('supabase://') ? undefined : url);
-  const [resolving, setResolving] = useState(Boolean(url?.startsWith('supabase://')));
-
-  useEffect(() => {
-    let active = true;
-    setResolving(Boolean(url?.startsWith('supabase://')));
-    if (!url) {
-      setResolvedUrl(undefined);
-      setResolving(false);
-      return () => { active = false; };
-    }
-
-    void resolveVideoUrl(url).then((nextUrl) => {
-      if (!active) return;
-      setResolvedUrl(nextUrl);
-      setResolving(false);
-    }).catch(() => {
-      if (!active) return;
-      setResolvedUrl(undefined);
-      setResolving(false);
-    });
-
-    return () => { active = false; };
-  }, [url]);
-
-  if (!url) {
-    return <div className={`${styles.video} ${styles.videoFallback}`}>No video added yet</div>;
-  }
-
-  if (resolving) {
-    return <div className={`${styles.video} ${styles.videoFallback}`}>Loading video…</div>;
-  }
-
-  if (!resolvedUrl) {
-    return <div className={`${styles.video} ${styles.videoFallback}`}>Video unavailable</div>;
-  }
-
-  const youtubeUrl = getYouTubeEmbedUrl(resolvedUrl);
-  if (youtubeUrl) {
-    return (
-      <div className={styles.video}>
-        <iframe
-          src={youtubeUrl}
-          title={`${title} demonstration video`}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowFullScreen
-        />
-      </div>
-    );
-  }
-
-  if (isDirectVideoUrl(resolvedUrl)) {
-    return (
-      <div className={styles.video}>
-        <video src={resolvedUrl} controls playsInline preload="metadata">
-          <track kind="captions" />
-        </video>
-      </div>
-    );
-  }
-
-  return (
-    <div className={`${styles.video} ${styles.videoFallback}`}>
-      <span>Video format not supported in Practice Mode.</span>
-      <a href={resolvedUrl} target="_blank" rel="noreferrer">Open video</a>
-    </div>
-  );
-}
-
 /** Mobile-first Practice Mode — one drill at a time, big buttons, live timer. */
 export function PracticeMode() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { practices, draft, completePractice, drills } = useStore();
+  const location = useLocation();
+  const fromWeeklyPlan = (location.state as { from?: string } | null)?.from === '/weekly-plan';
+  const drills = useDrills();
+  const getDrill = (drillId: string) => drills.find((item) => item.id === drillId);
+  const { practices, draft, savePractice, completePractice } = useStore();
   const plan = id === 'draft' ? draft : practices.find((p) => p.id === id);
+  useEffect(() => {
+    if (plan && plan.status !== 'Completed' && plan.status !== 'In Progress') savePractice({ ...plan, status: 'In Progress', lastOpened: new Date().toISOString() });
+  }, [plan?.id]);
+  const normalizedPractice = useMemo(() => {
+    if (!plan) return null;
+    const sourceItems = Array.isArray(plan.items) ? plan.items : [];
+    const normalizedItems = normalizePracticeItems(sourceItems, drills);
+    return withPracticeBlocks(plan, normalizedItems, drills);
+  }, [drills, plan]);
+  const allItems = Array.isArray(normalizedPractice?.items) ? normalizedPractice.items : [];
+  const drillItems = allItems.filter((candidate): candidate is PracticeDrillItem => candidate.kind === 'drill' && Boolean(candidate.drillId));
+  const blocks = normalizedPractice?.blocks ?? [];
 
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(() => {
+    const requested = Number(new URLSearchParams(location.search).get('drill') ?? '0');
+    return Number.isInteger(requested) && requested >= 0 ? requested : 0;
+  });
+  useEffect(() => {
+    setIndex((current) => (drillItems.length ? Math.min(Math.max(0, current), drillItems.length - 1) : 0));
+  }, [drillItems.length]);
+
   const [done, setDone] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
+  const [mediaMode, setMediaMode] = useState<'video' | 'diagram'>('video');
   const [left, setLeft] = useState(0);
   const [noteOpen, setNoteOpen] = useState(false);
   const [notes, setNotes] = useState<string[]>([]);
@@ -180,27 +56,50 @@ export function PracticeMode() {
   const [ending, setEnding] = useState(false);
   const [finalNote, setFinalNote] = useState('');
 
-  const item = plan?.items[index];
+  const [sessionOverrides, setSessionOverrides] = useState<Record<string, number>>({});
+  const item = drillItems[index];
+  const currentSessionSeconds = sessionDurationSeconds(item, sessionOverrides);
 
   useEffect(() => {
-    if (item) setLeft(item.duration * 60);
+    setLeft(sessionDurationSeconds(item, sessionOverrides));
     setRunning(false);
-  }, [index, item?.id, item]);
+    setMediaMode('video');
+  }, [index, item?.id]);
 
   useEffect(() => {
     if (!running) return undefined;
-    const t = setInterval(() => setLeft((l) => l - 1), 1000);
+    const t = setInterval(() => {
+      setLeft((current) => {
+        if (current <= 1) {
+          setRunning(false);
+          return 0;
+        }
+        return current - 1;
+      });
+    }, 1000);
     return () => clearInterval(t);
   }, [running]);
 
   const go = useCallback((dir: number) => {
     if (!plan) return;
-    setIndex((i) => Math.min(plan.items.length - 1, Math.max(0, i + dir)));
-  }, [plan]);
+    setIndex((i) => Math.min(drillItems.length - 1, Math.max(0, i + dir)));
+  }, [drillItems.length, plan]);
+
+  const adjustTime = (deltaSeconds: number) => {
+    if (!item) return;
+    const result = adjustSessionDuration(item, sessionOverrides, deltaSeconds);
+    setSessionOverrides(result.overrides);
+    setLeft(result.durationSeconds);
+  };
+  const selectBlock = (block: PracticeBlock) => {
+    const firstIndex = drillItems.findIndex((candidate) => block.drills.some((blockDrill) => blockDrill.id === candidate.id));
+    if (firstIndex >= 0) setIndex(firstIndex);
+  };
 
   if (!plan) {
     return (
-      <div className={styles.wrap}>
+      <div className={styles.wrap}>1
+      
         <div className={styles.body}>
           <h1 className={styles.name}>No practice loaded</h1>
           <button type="button" className={styles.mainBtn} onClick={() => navigate('/practices')}>Back to My Practices</button>
@@ -209,21 +108,46 @@ export function PracticeMode() {
     );
   }
 
-  const drill = item?.drillId ? drills.find((d) => d.id === item.drillId) : undefined;
-  const drillCount = plan.items.filter((i) => i.kind === 'drill').length;
-  const progress = ((index + 1) / plan.items.length) * 100;
+  const drill = item?.drillId ? getDrill(item.drillId) : undefined;
+  const coachPrescription = item?.coachPrescription ?? (item?.drillId ? resolveCoachPrescriptionV1(item.drillId, plan.ageGroup) : undefined);
+  const hasVideo = Boolean((drill as any)?.videoUrl);
+  const hasDiagram = Boolean((drill as any)?.diagramUrl);
+  const MEDIA_TABS = ['video', 'diagram'] as const;
+  const selectedMediaMode = mediaMode;
+  const activeBlock = blocks.find((block) => block.drills.some((candidate) => candidate.id === item?.id));
+  const activeBlockIndex = activeBlock ? blocks.findIndex((block) => block.id === activeBlock.id) : -1;
+  const blockDrillIndex = activeBlock ? activeBlock.drills.findIndex((candidate) => candidate.id === item?.id) : -1;
+  const visibleItems = activeBlock?.drills ?? drillItems;
+  const currentBlockSeconds = activeBlock ? blockSessionDuration(activeBlock, sessionOverrides) : 0;
+  const currentPracticeSeconds = practiceSessionDuration(blocks, sessionOverrides);
+  const drillCount = drillItems.length;
+  const progress = ((index + 1) / drillItems.length) * 100;
 
   const markDone = () => {
     if (!item) return;
     setDone((d) => (d.includes(item.id) ? d : [...d, item.id]));
-    if (index < plan.items.length - 1) go(1);
+    if (index < drillItems.length - 1) go(1);
     else setEnding(true);
   };
 
   const finish = () => {
+    // The store marks exactly these slots done, so the history entry counts the
+    // drills the coach actually completed rather than a bare number.
     completePractice(plan, [...notes, finalNote].filter(Boolean).join(' · '), done);
     void navigate('/history');
   };
+
+  if (drillItems.length === 0) {
+    return (
+      <div className={styles.wrap}>
+        <div className={styles.block}>
+          <h1>No drills in this practice</h1>
+          <p>This practice does not contain any valid drills yet.</p>
+          <button type="button" className={styles.navBtn} onClick={() => navigate(fromWeeklyPlan ? '/weekly-plan' : '/history')}>Back</button>
+        </div>
+      </div>
+    );
+  }
 
   if (ending) {
     return (
@@ -238,7 +162,7 @@ export function PracticeMode() {
           <div className={styles.block}>
             <div className={styles.blockTitle}>Session Summary</div>
             <p>{done.length} of {drillCount} drills completed.</p>
-            <p>{plan.items.reduce((a, i) => a + i.duration, 0)} minutes planned · {plan.primaryFocus} focus.</p>
+            <p>{formatPracticeSeconds(currentPracticeSeconds)} planned · {plan.primaryFocus} focus.</p>
             <div className={styles.pills}>
               {plan.playerIds.length ? <span className={styles.pill}>{plan.playerIds.length} players</span> : null}
               <span className={styles.pill}>{Math.round((done.length / Math.max(1, drillCount)) * 100)}% completion</span>
@@ -268,20 +192,32 @@ export function PracticeMode() {
   return (
     <div className={styles.wrap}>
       <div className={styles.top}>
+        {fromWeeklyPlan ? (
+          <button type="button" className={styles.exit} onClick={() => navigate('/weekly-plan')}>← Plan</button>
+        ) : null}
         <div className={styles.topTitle}>
           {plan.name}
-          <small>Block {index + 1} of {plan.items.length} · {done.length} completed</small>
+          <small>Block {activeBlockIndex + 1} of {blocks.length} · Drill {blockDrillIndex + 1} of {activeBlock?.drills.length ?? drillCount} · {done.length} completed</small>
         </div>
         <button type="button" className={styles.exit} onClick={() => setEnding(true)}>End</button>
       </div>
       <div className={styles.progress}><div className={styles.progressFill} style={{ width: `${progress}%` }} /></div>
 
-      <div className={styles.strip}>
-        {plan.items.map((it, i) => {
-          const d = it.drillId ? drills.find((candidate) => candidate.id === it.drillId) : undefined;
-          const cls = i === index ? styles.stripActive : done.includes(it.id) ? styles.stripDone : '';
+      <div className={styles.blockNav} aria-label="Practice blocks">
+          {blocks.map((block) => (
+            <button key={block.id} type="button" className={activeBlock?.id === block.id ? styles.blockButtonActive : styles.blockButton} onClick={() => selectBlock(block)}>
+              <span className={styles.blockName}>{block.name}</span>
+              <span className={styles.blockDuration}>{formatPracticeSeconds(blockSessionDuration(block, sessionOverrides))}</span>
+            </button>
+          ))}
+        </div>
+        <div className={styles.strip}>
+        {visibleItems.map((it) => {
+          const d = it.drillId ? getDrill(it.drillId) : undefined;
+          const globalIndex = drillItems.findIndex((candidate) => candidate.id === it.id);
+        const cls = globalIndex === index ? styles.stripActive : done.includes(it.id) ? styles.stripDone : '';
           return (
-            <button key={it.id} type="button" className={`${styles.stripItem} ${cls}`} onClick={() => setIndex(i)}>
+            <button key={it.id} type="button" className={`${styles.stripItem} ${cls}`} onClick={() => setIndex(globalIndex)}>
               {d?.code ?? it.label}
             </button>
           );
@@ -294,26 +230,56 @@ export function PracticeMode() {
         <div className={styles.pills}>
           {drill ? <span className={styles.pill}>Level {drill.level}</span> : null}
           {drill ? <span className={styles.pill}>{drill.intensity} intensity</span> : null}
-          <span className={styles.pill}>{item?.duration} min</span>
+          <span className={styles.pill}>{formatPracticeSeconds(currentSessionSeconds)}</span>
           <span className={styles.pill}>{item?.phase}</span>
+          <span className={styles.pill}>Block {formatPracticeSeconds(currentBlockSeconds)}</span>
+          <span className={styles.pill}>Total {formatPracticeSeconds(currentPracticeSeconds)}</span>
         </div>
+        {coachPrescription ? <div style={{ marginTop: 12, color: '#c9d2e3', lineHeight: 1.45 }}><b>Locked Coach dosage.</b> {formatCoachPrescriptionV1(coachPrescription)} Active execution is separate from the allocated group time shown above.</div> : null}
+        {drill ? (
+          <div>
+                          <div style={{ display: 'flex', gap: 8, marginTop: 14, marginBottom: 10 }} aria-label="Practice media">
+                {MEDIA_TABS.map((candidate) => (
+                  <button
+                    key={candidate}
+                    type="button"
+                    className={`${styles.tbtn} ${selectedMediaMode === candidate ? styles.tbtnPrimary : ''}`}
+                    aria-pressed={selectedMediaMode === candidate}
+                    onClick={() => setMediaMode(candidate)}
+                  >
+                    {candidate === 'video' ? 'Video' : 'Diagram'}
+                  </button>
+                ))}
+              </div>
+      {selectedMediaMode === 'diagram'
+        ? hasDiagram
+          ? <DrillDiagramImage drill={drill as any} className={styles.video} />
+          : <div className={styles.video} style={{ display: 'grid', placeItems: 'center', background: '#0b1016', color: 'var(--bpds-slate)' }}>No diagram uploaded yet.</div>
+        : hasVideo
+          ? <DrillVideo drill={drill} className={styles.video} />
+          : <div className={styles.video} style={{ display: 'grid', placeItems: 'center', background: '#05070a', color: 'var(--bpds-slate)' }}>No video uploaded yet.</div>}
+          </div>
+        ) : null}
 
-        {drill ? <DrillVideo url={drill.videoUrl} title={drill.name} /> : null}
-
+        <div className={styles.timeAdjust}>
+          <button type="button" onClick={() => adjustTime(-15)} disabled={!item || currentSessionSeconds <= 0}>−15 sec</button>
+          <span>{formatPracticeSeconds(currentSessionSeconds)}</span>
+          <button type="button" onClick={() => adjustTime(15)} disabled={!item}>+15 sec</button>
+        </div>
         <div className={styles.timer}>
           <div className={styles.time} style={{ color: left < 0 ? '#ff7a5c' : '#fff' }}>{fmt(left)}</div>
           <div className={styles.timerActions}>
             <button type="button" className={`${styles.tbtn} ${running ? '' : styles.tbtnPrimary}`} onClick={() => setRunning((r) => !r)}>
-              {running ? '⏸ Pause' : '▶ Start'}
+              {running ? '⏸ Pause' : left > 0 && left < currentSessionSeconds ? '▶ Resume' : '▶ Start'}
             </button>
-            <button type="button" className={styles.tbtn} onClick={() => setLeft((item?.duration ?? 0) * 60)}>↺ Reset</button>
+            <button type="button" className={styles.tbtn} onClick={() => { setRunning(false); setLeft(currentSessionSeconds); }}>↻ Reset</button>
           </div>
         </div>
 
         <div className={styles.secondaryRow}>
           <button type="button" className={styles.sbtn} onClick={() => setNoteOpen((o) => !o)}>📝 Quick Note</button>
           <button type="button" className={styles.sbtn} onClick={() => go(1)}>⤼ Skip Drill</button>
-          {drill ? <button type="button" className={styles.sbtn} onClick={() => navigate(`/drill/${drill.id}`)}>ℹ Full Detail</button> : null}
+          {drill ? <button type="button" className={styles.sbtn} onClick={() => navigate(`/drill/${drill.id}`, { state: { returnTo: `/practice-mode/${id}?drill=${index}` } })}>↗ Full Detail</button> : null}
         </div>
 
         {noteOpen ? (
@@ -352,7 +318,7 @@ export function PracticeMode() {
             </div>
             <div className={styles.block}>
               <div className={styles.blockTitle}>Common Mistakes</div>
-              <ul>{drill.commonMistakes.slice(0, 4).map((c) => <li key={c}>{c}</li>)}</ul>
+              <ul>{(drill.commonMistakes ?? []).slice(0, 4).map((c) => <li key={c}>{c}</li>)}</ul>
             </div>
           </>
         ) : null}
@@ -367,7 +333,7 @@ export function PracticeMode() {
         >
           {item && done.includes(item.id) ? '✓ Completed' : 'Mark as Completed'}
         </button>
-        <button type="button" className={styles.navBtn} disabled={index === plan.items.length - 1} onClick={() => go(1)}>→</button>
+        <button type="button" className={styles.navBtn} disabled={index === drillItems.length - 1} onClick={() => go(1)}>→</button>
       </div>
     </div>
   );
