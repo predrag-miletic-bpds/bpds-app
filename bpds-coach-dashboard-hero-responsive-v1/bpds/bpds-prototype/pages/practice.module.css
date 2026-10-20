@@ -1,8 +1,8 @@
 .summary {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 14px;
-  margin-bottom: 18px;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
 .sumItem span {
@@ -24,7 +24,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 22px 0 10px;
+  margin: 14px 0 8px;
 }
 
 .phaseTag b {
@@ -44,12 +44,12 @@
 .item {
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: 14px;
+  gap: 12px;
   background: var(--bpds-surface);
   border: 1px solid var(--bpds-line);
   border-radius: var(--bpds-radius);
-  padding: 14px;
-  margin-bottom: 10px;
+  padding: 12px;
+  margin-bottom: 8px;
   box-shadow: var(--bpds-shadow);
   align-items: start;
 }
@@ -81,15 +81,15 @@
 
 .itemBody {
   display: flex;
-  gap: 14px;
+  gap: 10px;
   min-width: 0;
 }
 
 .itemMeta {
   display: flex;
-  gap: 7px;
+  gap: 6px;
   flex-wrap: wrap;
-  margin: 7px 0;
+  margin: 5px 0;
 }
 
 .itemName {
@@ -108,8 +108,8 @@
 .why {
   font-size: 13px;
   color: var(--bpds-slate);
-  line-height: 1.55;
-  margin-top: 6px;
+  line-height: 1.4;
+  margin-top: 4px;
 }
 
 .why b {
@@ -176,7 +176,7 @@
   align-items: center;
   gap: 16px;
   flex-wrap: wrap;
-  margin-top: 20px;
+  margin-top: 12px;
   box-shadow: 0 8px 30px rgba(14, 17, 22, 0.25);
 }
 

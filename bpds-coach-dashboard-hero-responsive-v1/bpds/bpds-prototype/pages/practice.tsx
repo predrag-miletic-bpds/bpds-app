@@ -202,8 +202,8 @@ export function PracticeView() {
         }
       />
 
-      <Card style={{ marginBottom: 18 }}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+      <Card style={{ marginBottom: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
           <Badge tone={plan.status === 'Completed' ? 'green' : plan.status === 'In Progress' ? 'blue' : 'gray'}>{plan.status.toUpperCase()}</Badge>
         </div>
         <div className={styles.summary}>
@@ -243,7 +243,7 @@ export function PracticeView() {
         <div
           style={{
             borderTop: '1px solid var(--bpds-line)',
-            paddingTop: 14,
+            paddingTop: 10,
             display: 'flex',
             gap: 8,
             flexWrap: 'wrap',

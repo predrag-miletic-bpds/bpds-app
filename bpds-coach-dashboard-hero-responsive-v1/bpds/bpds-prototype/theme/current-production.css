@@ -25,6 +25,28 @@
   }
 }
 
+/* Coach Practice spacing refinement: keep the approved execution structure while removing excess vertical space. */
+._body_1wijv_61{padding:16px 24px 108px!important;max-width:860px!important}
+._body_1wijv_61>:nth-child(5){margin:10px 0 8px!important}
+._body_1wijv_61>:nth-child(6){min-height:0!important;margin:0 0 12px!important}
+._video_1wijv_84{height:min(360px,56.25vw)!important;max-height:360px!important;min-height:0!important;margin:10px 0!important}
+._timer_1wijv_97{min-height:0!important;padding:14px 16px!important;margin-bottom:12px!important}
+._time_1wijv_97{margin:4px 0 12px!important}
+._block_1wijv_138{padding:12px 14px!important;margin-bottom:8px!important}
+._block_1wijv_138 p,._block_1wijv_138 li{line-height:1.45!important}
+._strip_1wijv_269{padding:8px 18px!important}
+._endPanel_1wijv_263{margin:20px auto!important}
+._summary_q3mvd_1{gap:10px!important;margin-bottom:12px!important}
+._phaseTag_q3mvd_23{margin:14px 0 8px!important}
+._item_q3mvd_44{gap:12px!important;padding:12px!important;margin-bottom:8px!important}
+._itemBody_q3mvd_91{gap:10px!important}
+._why_q3mvd_117{line-height:1.4!important;margin-top:4px!important}
+._totalBar_q3mvd_177{margin-top:12px!important}
+@media (width<=600px){
+  ._body_1wijv_61{padding:12px 16px 100px!important}
+  ._video_1wijv_84{height:min(240px,56.25vw)!important;max-height:240px!important}
+}
+
 /* PORT3005 PRACTICE PLAYER DOM PATCH */
 .wrap_1wivj_1 .timer_1wivj_97,
 .wrap_1wivj_1 .video_1wivj_84 {
