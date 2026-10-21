@@ -2,6 +2,6 @@
   "name": "bpds-practice-review-pdf-v1-preview",
   "private": true,
   "scripts": {
-    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true});require('fs').cpSync('prebuilt','dist',{recursive:true})\" && node scripts/verify-preview-bundle.cjs"
+    "build": "npm --prefix bpds-coach-dashboard-hero-responsive-v1 run build && node -e \"require('fs').rmSync('dist',{recursive:true,force:true});require('fs').cpSync('bpds-coach-dashboard-hero-responsive-v1/bpds/bpds-prototype/dist','dist',{recursive:true})\" && node scripts/verify-preview-bundle.cjs"
   }
 }
