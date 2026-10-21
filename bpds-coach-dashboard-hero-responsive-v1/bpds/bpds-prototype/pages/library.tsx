@@ -116,7 +116,7 @@ export function Library() {
                   </label>
                   <label className={styles.checkRow}>
                     <input type="checkbox" checked={modules.includes(ATHLETIC_FILTER)} onChange={() => toggleModule(ATHLETIC_FILTER)} />
-                    Athletic Development ({drills.filter((d) => isAthleticLegacy(d.code)).length})
+                    Athletic Development
                   </label>
                 </div>
                 {AREAS.map((area) => (
