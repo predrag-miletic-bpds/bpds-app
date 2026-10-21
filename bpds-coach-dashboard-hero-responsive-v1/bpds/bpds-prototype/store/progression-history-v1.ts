@@ -17,7 +17,8 @@ export type PracticeForHistory = {
   id: string;
   teamId?: string;
   playerIds?: string[];
-  items: Array<{ id: string; drillId?: string; completed?: boolean }>;
+  status?: string;
+  items: Array<{ id: string; kind?: string; drillId?: string; completed?: boolean }>;
 };
 export type VerifiedExposure = {
   historyId: string;
@@ -45,18 +46,18 @@ export function buildProgressionHistory(
   const cutoff = now.getTime() - 21 * 86400000;
   for (const entry of history) {
     const practice = entry.practiceId ? byId.get(entry.practiceId) : undefined;
-    if (!practice || !Number.isFinite(Date.parse(entry.date))) {
+    if (!practice || practice.status !== 'Completed' || !Number.isFinite(Date.parse(entry.date))) {
       unresolvedHistoryIds.push(entry.id);
       continue;
     }
     // Legacy history may contain a 0%-complete session; never credit it.
     if (entry.completedDrills <= 0) continue;
-    const executed = practice.items.filter(item => item.completed === true && typeof item.drillId === 'string' && item.drillId.length > 0);
-    if (!executed.length) {
+    const executed = practice.items.filter(item => item.completed === true && item.kind === 'drill' && typeof item.drillId === 'string' && item.drillId.length > 0);
+    if (!executed.length || executed.length !== entry.completedDrills) {
       unresolvedHistoryIds.push(entry.id);
       continue;
     }
-    for (const item of executed) {
+    // Repeated sessions must have distinct immutable execution snapshots; the\n    // current mutable Practice record alone is not enough to prove earlier runs.\n    if (history.filter(h => h.practiceId === entry.practiceId && h.completedDrills > 0).length > 1) {\n      unresolvedHistoryIds.push(entry.id);\n      continue;\n    }\n    for (const item of executed) {
       const key = entry.id + ':' + item.id;
       if (seen.has(key)) continue;
       seen.add(key);
