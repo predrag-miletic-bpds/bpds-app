@@ -57,7 +57,13 @@ export function buildProgressionHistory(
       unresolvedHistoryIds.push(entry.id);
       continue;
     }
-    // Repeated sessions must have distinct immutable execution snapshots; the\n    // current mutable Practice record alone is not enough to prove earlier runs.\n    if (history.filter(h => h.practiceId === entry.practiceId && h.completedDrills > 0).length > 1) {\n      unresolvedHistoryIds.push(entry.id);\n      continue;\n    }\n    for (const item of executed) {
+    // Repeated sessions must have distinct immutable execution snapshots; the
+    // current mutable Practice record alone is not enough to prove earlier runs.
+    if (history.filter(h => h.practiceId === entry.practiceId && h.completedDrills > 0).length > 1) {
+      unresolvedHistoryIds.push(entry.id);
+      continue;
+    }
+    for (const item of executed) {
       const key = entry.id + ':' + item.id;
       if (seen.has(key)) continue;
       seen.add(key);
