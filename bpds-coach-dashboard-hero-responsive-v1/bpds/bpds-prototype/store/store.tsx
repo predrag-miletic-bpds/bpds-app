@@ -4,6 +4,8 @@ import type { Coach, HistoryEntry, Player, Practice, Team } from '../data/types.
 import { loadDrills } from '../data/drill-media.js';
 import type { BpdsServices } from './services.js';
 import { createServices, readLocal, SESSION_KEYS, writeLocal } from './services.js';
+import { makeExecutionSnapshot } from './execution-snapshot-v1.js';
+import { saveExecutionSnapshotV1 } from './execution-snapshot-remote-v1.js';
 
 type Store = {
   coach: Coach;
@@ -267,7 +269,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const result = practiceApi.completePractice(saved.id, notes);
     if (result) people.creditSession(saved.playerIds, result.entry.duration, result.entry.completedDrills);
     void savePracticeRemote(saved, coach.id).catch((cause: Error) => setError(cause.message));
-    if (result) void saveHistory(result.entry, coach.id, saved.id).catch((cause: Error) => setError(cause.message));
+    if (result) {
+      // Persist history first. The immutable execution evidence is an
+      // append-only companion record, never a replacement for legacy history.
+      void (async () => {
+        await saveHistory(result.entry, coach.id, saved.id);
+        const snapshot = makeExecutionSnapshot(
+          result.entry.id,
+          { id: saved.id, teamId: saved.teamId, playerIds: saved.playerIds,
+            items: saved.items.map(item => ({
+              id: item.id, kind: item.kind, drillId: item.drillId,
+              duration: item.duration, completed: item.completed,
+            })) },
+          new Date().toISOString(),
+          notes,
+        );
+        await saveExecutionSnapshotV1(coach.id, result.entry.id, snapshot);
+      })().catch((cause: Error) => setError(cause.message));
+    }
     for (const player of people.listPlayers().filter((item) => saved.playerIds.includes(item.id))) void savePlayer(player, coach.id).catch((cause: Error) => setError(cause.message));
     setDraft(undefined);
     syncPractices();
