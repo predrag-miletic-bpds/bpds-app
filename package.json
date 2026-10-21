@@ -1,7 +1,15 @@
 {
   "name": "bpds-practice-review-pdf-v1-preview",
   "private": true,
+  "dependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.21"
+  },
   "scripts": {
-    "build": "npm --prefix bpds-coach-dashboard-hero-responsive-v1 run build && node -e \"require('fs').rmSync('dist',{recursive:true,force:true});require('fs').cpSync('bpds-coach-dashboard-hero-responsive-v1/bpds/bpds-prototype/dist','dist',{recursive:true})\" && node scripts/verify-preview-bundle.cjs"
+    "build": "node -e \"require('fs').rmSync('bpds-coach-dashboard-hero-responsive-v1/bpds/bpds-prototype/dist',{recursive:true,force:true})\" && npm --prefix bpds-coach-dashboard-hero-responsive-v1 run build && node -e \"require('fs').rmSync('dist',{recursive:true,force:true});require('fs').cpSync('bpds-coach-dashboard-hero-responsive-v1/bpds/bpds-prototype/dist','dist',{recursive:true})\" && node scripts/verify-preview-bundle.cjs"
   }
 }
