@@ -111,6 +111,10 @@ export function Library() {
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 800, color: '#9aa3b0', margin: '8px 0 4px' }}>ATHLETIC &amp; SKILL FOUNDATION</div>
                   <label className={styles.checkRow}>
+                    <input type="checkbox" checked={modules.includes('WUP')} onChange={() => toggleModule('WUP')} />
+                    Warm-Up &amp; Movement Preparation
+                  </label>
+                  <label className={styles.checkRow}>
                     <input type="checkbox" checked={modules.includes(ATHLETIC_FILTER)} onChange={() => toggleModule(ATHLETIC_FILTER)} />
                     Athletic Development ({drills.filter((d) => isAthleticLegacy(d.code)).length})
                   </label>
