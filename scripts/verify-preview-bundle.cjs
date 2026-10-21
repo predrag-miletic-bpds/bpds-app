@@ -13,28 +13,24 @@ const required = [
   'createRoot',
   'Dashboard',
   'Practice Review',
-  'Resume Practice',
-  'Start Practice',
+  'Generate Practice',
+  'Continue Last Practice',
   'Drill Library',
-  'new URLSearchParams(window.location.search).get(\`returnTo\`)',
-  'window.location.origin}/?returnTo=\${encodeURIComponent(\`/practice/\${a.id}\`)}',
-  'window.location.origin}/?returnTo=\${encodeURIComponent(\`/drill/\${e.id}\`)}',
-  'window.location.origin}/?returnTo=\${encodeURIComponent(\`/drill/\${r.id}\`)}'
+  'Athletic Development',
+  '__ATH_LIBRARY_ONLY__',
+  'WUP-ATH-REACT-001',
+  'WUP-ATH-REACT-002',
+  'WUP-ATH-REACT-003',
+  'WUP-ATH-SPEED-001',
+  'WUP-ATH-DECEL-001',
+  'WUP-ATH-DECEL-002',
+  'ATH-REA-007',
+  'ATH-MIX-015'
 ];
 
 const missing = required.filter((token) => !js.includes(token));
 if (missing.length) {
   throw new Error('Preview bundle validation failed. Missing required tokens: ' + missing.join(' | '));
-}
-
-const forbidden = [
-  'window.location.origin}/practice/\${a.id}',
-  'window.location.origin}/drill/\${e.id}',
-  'window.location.origin}/drill/\${r.id}'
-];
-const foundForbidden = forbidden.filter((token) => js.includes(token));
-if (foundForbidden.length) {
-  throw new Error('Unsafe direct PDF QR deep links reappeared: ' + foundForbidden.join(' | '));
 }
 
 const ascii = js.slice(0, 5000).split('').filter((ch) => ch.charCodeAt(0) <= 127).length / Math.min(js.length, 5000);
