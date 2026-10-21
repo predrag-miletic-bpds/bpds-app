@@ -13,6 +13,18 @@ import { Badge, Button, Card, Input, Page, PageHead, Select, levelInfo } from '.
 import styles from './library.module.generated.js';
 import { coachPrescriptionForDrillV1 } from '../../../bpds-methodology/practice-prescriptions/coach-prescriptions-v1.js';
 
+/** Library-only Athletic grouping: legacy IDs remain unchanged for generator/saved practices. */
+const ATHLETIC_LEGACY: Record<string, { category: string; canonical?: string }> = {
+  'WUP-ATH-REACT-001': { category: 'Reaction', canonical: 'ATH-REA-001' },
+  'WUP-ATH-REACT-002': { category: 'Reaction', canonical: 'ATH-REA-007' },
+  'WUP-ATH-REACT-003': { category: 'Reaction', canonical: 'ATH-REA-008' },
+  'WUP-ATH-SPEED-001': { category: 'Speed & Acceleration' },
+  'WUP-ATH-DECEL-001': { category: 'Deceleration & Landing' },
+  'WUP-ATH-DECEL-002': { category: 'Deceleration & Landing', canonical: 'ATH-MIX-015' },
+};
+const isAthleticLegacy = (id: string) => Boolean(ATHLETIC_LEGACY[id]);
+const ATHLETIC_FILTER = '__ATH_LIBRARY_ONLY__';
+
 const AGE_GROUPS: AgeGroup[] = ['U8', 'U10', 'U12', 'U14', 'U16', 'U18', 'Senior', 'Professional'];
 
 /** Filterable BPDS drill library. */
@@ -34,9 +46,9 @@ export function Library() {
   const [openFilters, setOpenFilters] = useState(false);
 
   const results = useMemo(() => drills.filter((d) => {
-    const text = `${d.code} ${d.name} ${d.tags.join(' ')} ${getModule(d.moduleCode)?.name ?? ''}`.toLowerCase();
+    const text = `${d.code} ${d.name} ${d.tags.join(' ')} ${getModule(d.moduleCode)?.name ?? ''} ${ATHLETIC_LEGACY[d.id]?.category ?? ''} ${ATHLETIC_LEGACY[d.id]?.canonical ?? ''}`.toLowerCase();
     if (q && !text.includes(q.toLowerCase())) return false;
-    if (modules.length && !modules.includes(d.moduleCode)) return false;
+    if (modules.length && !modules.some((code) => code === ATHLETIC_FILTER ? isAthleticLegacy(d.id) : code === 'WUP' ? d.moduleCode === 'WUP' && !isAthleticLegacy(d.id) : d.moduleCode === code)) return false;
     if (levels.length && !levels.includes(d.level)) return false;
     if (age && !d.suitableAges.includes(age as AgeGroup)) return false;
     if (equipment && !d.equipment.includes(equipment)) return false;
@@ -96,6 +108,14 @@ export function Library() {
             <div className={styles.filterGroup}>
               <div>Module</div>
               <div className={styles.moduleScroll}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: '#9aa3b0', margin: '8px 0 4px' }}>ATHLETIC & SKILL FOUNDATION</div>
+                  <label className={styles.checkRow}>
+                    <input type="checkbox" checked={modules.includes(ATHLETIC_FILTER)} onChange={() => toggleModule(ATHLETIC_FILTER)} />
+                    Athletic Development ({drills.filter((d) => isAthleticLegacy(d.id)).length})
+                  </label>
+                  <div style={{ fontSize: 11, color: '#9aa3b0', paddingLeft: 22 }}>Reaction · Speed · Deceleration</div>
+                </div>
                 {AREAS.map((area) => (
                   <div key={area}>
                     <div style={{ fontSize: 11, fontWeight: 800, color: '#9aa3b0', margin: '8px 0 4px' }}>{area}</div>
@@ -179,7 +199,7 @@ export function Library() {
                   </div>
                   <div className={styles.cardBody}>
                     <div className={styles.cardName}>{d.name}</div>
-                    <div className={styles.cardModule}>{getModule(d.moduleCode)?.name}</div>
+                    <div className={styles.cardModule}>{isAthleticLegacy(d.id) ? `Athletic Development · ${ATHLETIC_LEGACY[d.id].category}` : getModule(d.moduleCode)?.name}</div>
                     <div className={styles.cardBadges}>
                       <Badge tone={li.tone}>{li.label}</Badge>
                       <Badge tone="gray">{d.suitableAges[0]}+</Badge>
