@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/store.js';
+import { buildProgressionHistory } from '../store/progression-history-v1.js';
 import { Badge, Button, Card, Empty, Page, PageHead, SectionTitle } from '../ui/ui.js';
 
 /** Training history — completed sessions across players and teams. */
 export function History() {
   const navigate = useNavigate();
-  const { history, players, teams, deleteHistoryEntry } = useStore();
+  const { history, practices, players, teams, deleteHistoryEntry } = useStore();
+  const progression = buildProgressionHistory(history, practices);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const totalMinutes = history.reduce((a, h) => a + h.duration, 0);
   const totalDrills = history.reduce((a, h) => a + h.completedDrills, 0);
@@ -38,6 +40,15 @@ export function History() {
         <SectionTitle>Recent Training Focus</SectionTitle>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {Object.entries(focusCounts).map(([f, c]) => <Badge key={f} tone="orange">{f} · {c}</Badge>)}
+        </div>
+      </Card>
+
+      <Card style={{ marginBottom: 22 }}>
+        <SectionTitle>Progression Memory · Read-only V1</SectionTitle>
+        <div style={{ fontSize: 13, lineHeight: 1.8, color: 'var(--bpds-slate)' }}>
+          Verified completed drill exposures: <b>{progression.exposures.length}</b> · Distinct drills: <b>{progression.distinctDrills}</b> · Last 21 days: <b>{progression.last21Days.length}</b>
+          {progression.unresolvedHistoryIds.length > 0 ? <div>{progression.unresolvedHistoryIds.length} historical sessions need item-level verification; they are excluded from progression decisions.</div> : null}
+          <div>Read-only audit: no automatic advancement, no generator changes, no inferred mastery.</div>
         </div>
       </Card>
 
