@@ -19,6 +19,7 @@ export function Dashboard() {
   const navigate = useNavigate();
   const { coach, players, teams, practices, history, recentDrills } = useStore();
   const lastPractice = practices[0];
+  const playersWithNotes = players.filter((p) => p.notes.length).slice(0, 4);
   const totalMinutes = history.reduce((a, h) => a + h.duration, 0);
   const totalDrills = history.reduce((a, h) => a + h.completedDrills, 0);
 
@@ -72,7 +73,7 @@ export function Dashboard() {
       </div>
 
       <div className={styles.cols}>
-        <div style={{ display: 'grid', gap: 20 }}>
+        <div style={{ display: 'grid', gap: 16, alignContent: 'start' }}>
           <Card>
             <SectionTitle>Recent Practices</SectionTitle>
             {practices.slice(0, 4).map((p) => (
@@ -142,12 +143,16 @@ export function Dashboard() {
 
           <Card>
             <SectionTitle>Coach Notes</SectionTitle>
-            {players.filter((p) => p.notes.length).slice(0, 4).map((p) => (
+            {playersWithNotes.length === 0 ? (
+              <p style={{ fontSize: 13, color: 'var(--bpds-slate)', margin: '4px 0 12px' }}>No player notes yet. Open a player profile to add notes.</p>
+            ) : null}
+            {playersWithNotes.map((p) => (
               <div key={p.id} className={styles.noteItem}>
                 {p.notes[0]}
                 <small>{p.fullName} · private</small>
               </div>
             ))}
+            <Button size="sm" onClick={() => navigate('/players')}>View Players</Button>
           </Card>
 
           <Card>
