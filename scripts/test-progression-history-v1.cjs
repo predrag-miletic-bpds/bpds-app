@@ -1,0 +1,24 @@
+/* Run: node --test scripts/test-progression-history-v1.cjs */
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const path = require('node:path');
+const ts = require('typescript');
+const source = fs.readFileSync(path.join(__dirname, '../bpds-coach-dashboard-hero-responsive-v1/bpds/bpds-prototype/store/progression-history-v1.ts'), 'utf8');
+const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
+const moduleObj = { exports: {} };
+vm.runInNewContext(js, { module: moduleObj, exports: moduleObj.exports, Date, Map, Set }, { filename: 'progression-history-v1.js' });
+const { buildProgressionHistory } = moduleObj.exports;
+const now = new Date('2026-10-21T12:00:00Z');
+const practice = (overrides = {}) => ({ id: 'p1', status: 'Completed', teamId: 'team', playerIds: ['a'], items: [{ id: 'slot1', kind: 'drill', drillId: 'bm-1', completed: true }, { id: 'slot2', kind: 'break', completed: true }], ...overrides });
+const history = (overrides = {}) => ({ id: 'h1', practiceId: 'p1', date: '2026-10-20', completedDrills: 1, ...overrides });
+test('counts only explicitly completed drill items', () => { const r = buildProgressionHistory([history()], [practice()], now); assert.equal(r.exposures.length, 1); assert.equal(r.distinctDrills, 1); assert.equal(r.last21Days.length, 1); });
+test('does not credit 0%-completed sessions', () => { const r = buildProgressionHistory([history({ completedDrills: 0 })], [practice()], now); assert.equal(r.exposures.length, 0); });
+test('rejects planned but not completed practice', () => { const r = buildProgressionHistory([history()], [practice({ status: 'Draft' })], now); assert.equal(r.exposures.length, 0); assert.equal(r.unresolvedHistoryIds.length, 1); });
+test('rejects missing practice and historical aggregate', () => { const r = buildProgressionHistory([history({ practiceId: undefined })], [practice()], now); assert.equal(r.exposures.length, 0); assert.equal(r.unresolvedHistoryIds.length, 1); });
+test('rejects completion-count mismatch', () => { const r = buildProgressionHistory([history({ completedDrills: 2 })], [practice()], now); assert.equal(r.exposures.length, 0); });
+test('rejects unmarked drill', () => { const r = buildProgressionHistory([history()], [practice({ items: [{ id: 'slot1', kind: 'drill', drillId: 'bm-1', completed: false }] })], now); assert.equal(r.exposures.length, 0); });
+test('rejects repeated execution of mutable practice', () => { const r = buildProgressionHistory([history(), history({ id: 'h2', date: '2026-10-19' })], [practice()], now); assert.equal(r.exposures.length, 0); assert.equal(r.unresolvedHistoryIds.length, 2); });
+test('21-day window excludes old verified exposure', () => { const r = buildProgressionHistory([history({ date: '2026-08-01' })], [practice()], now); assert.equal(r.exposures.length, 1); assert.equal(r.last21Days.length, 0); });
+test('does not count missing drill ID', () => { const r = buildProgressionHistory([history()], [practice({ items: [{ id: 'slot1', kind: 'drill', completed: true }] })], now); assert.equal(r.exposures.length, 0); });
