@@ -118,11 +118,10 @@ export function Library() {
                     <input type="checkbox" checked={modules.includes(ATHLETIC_FILTER)} onChange={() => toggleModule(ATHLETIC_FILTER)} />
                     Athletic Development ({drills.filter((d) => isAthleticLegacy(d.code)).length})
                   </label>
-                  <div style={{ fontSize: 11, color: '#9aa3b0', paddingLeft: 22 }}>Reaction · Speed · Deceleration</div>
                 </div>
                 {AREAS.map((area) => (
                   <div key={area}>
-                    <div style={{ fontSize: 11, fontWeight: 800, color: '#9aa3b0', margin: '8px 0 4px' }}>{area}</div>
+                    {area !== 'Training Preparation' && <div style={{ fontSize: 11, fontWeight: 800, color: '#9aa3b0', margin: '8px 0 4px' }}>{area}</div>}
                     {MODULES.filter((m) => m.area === area && m.code !== 'WUP').map((m) => (
                       <label key={m.code} className={styles.checkRow}>
                         <input type="checkbox" checked={modules.includes(m.code)} onChange={() => toggleModule(m.code)} />
