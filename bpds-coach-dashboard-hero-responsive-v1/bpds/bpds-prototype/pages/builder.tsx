@@ -10,6 +10,14 @@ import { PlannedDoseEditor } from '../components/planned-dose-editor.js';
 import { useStore } from '../store/store.js';
 import { Badge, Button, Card, Field, Input, Page, PageHead, SectionTitle, Select, levelInfo } from '../ui/ui.js';
 
+/** UI-only grouping: preserve canonical drill IDs, module codes and generator. */
+const ATHLETIC_CODES = new Set([
+  'WUP-ATH-REACT-001', 'WUP-ATH-REACT-002', 'WUP-ATH-REACT-003',
+  'WUP-ATH-SPEED-001', 'WUP-ATH-DECEL-001', 'WUP-ATH-DECEL-002',
+]);
+const ATHLETIC_FILTER = '__ATH_LIBRARY_ONLY__';
+const isAthleticDrill = (code: string) => ATHLETIC_CODES.has(code.toUpperCase());
+
 const BLOCKS = [
   ['Water Break', 3], ['Coach Meeting', 5], ['Free Throws', 4], ['Team Talk', 5], ['Competition', 10],
 ] as const;
@@ -35,7 +43,7 @@ export function Builder() {
 
   const results = useMemo(() => DRILLS.filter((d) => {
     if (q && !`${d.code} ${d.name} ${d.tags.join(' ')}`.toLowerCase().includes(q.toLowerCase())) return false;
-    if (moduleCode && d.moduleCode !== moduleCode) return false;
+    if (moduleCode && !(moduleCode === ATHLETIC_FILTER ? isAthleticDrill(d.code) : moduleCode === 'WUP' ? d.moduleCode === 'WUP' && !isAthleticDrill(d.code) : d.moduleCode === moduleCode)) return false;
     if (level && d.level !== Number(level)) return false;
     return true;
   }).slice(0, 40), [q, moduleCode, level]);
@@ -142,9 +150,13 @@ export function Builder() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: 10 }}>
                 <Select value={moduleCode} onChange={(e) => setModuleCode(e.target.value)}>
                   <option value="">All modules</option>
+                  <optgroup label="Athletic & Skill Foundation">
+                    <option value="WUP">Warm-Up &amp; Movement Preparation</option>
+                    <option value={ATHLETIC_FILTER}>Athletic Development</option>
+                  </optgroup>
                   {AREAS.map((area) => (
                     <optgroup key={area} label={area}>
-                      {MODULES.filter((m) => m.area === area).map((m) => <option key={m.code} value={m.code}>{m.name}</option>)}
+                      {MODULES.filter((m) => m.area === area && m.code !== 'WUP').map((m) => <option key={m.code} value={m.code}>{m.name}</option>)}
                     </optgroup>
                   ))}
                 </Select>
