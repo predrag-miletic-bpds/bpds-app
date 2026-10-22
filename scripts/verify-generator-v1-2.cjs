@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const root = path.join(__dirname, '..', 'bpds-coach-dashboard-hero-responsive-v1');
 const sourcePath = path.join(root, 'bpds-methodology/practice-generator/practice-generator.ts');
 const source = fs.readFileSync(sourcePath, 'utf8');
+const serviceSource = fs.readFileSync(path.join(root, 'bpds/bpds-prototype/store/services.ts'), 'utf8');
 const catalog = JSON.parse(fs.readFileSync(path.join(root, 'bpds-methodology/athletic-prescriptions/athletic-locked-v1.json'), 'utf8'));
 
 function sum(items) { return items.reduce((total, item) => total + item.duration, 0); }
@@ -84,7 +85,6 @@ assert.equal(foundation90.some(x => x.drillId.startsWith('DFW-')), false);
 assert.ok(sample90.filter(x => x.drillId?.startsWith('BM-')).length <= 4);
 assert.ok(sample90.filter(x => x.label?.includes('buffer')).every(x => x.duration <= 4));
 
-const serviceSource = fs.readFileSync(path.join(root, 'bpds/bpds-prototype/store/services.ts'), 'utf8');
 const practiceService = fs.readFileSync(path.join(root, 'bpds-practices/practice-service/practice-service.ts'), 'utf8');
 assert.match(serviceSource, /practices:\s*\{[\s\S]*generate/);
 assert.match(practiceService, /generatePractice\(/);
