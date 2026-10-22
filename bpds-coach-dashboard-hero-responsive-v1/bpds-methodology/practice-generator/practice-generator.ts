@@ -494,6 +494,16 @@ function v12IsAthleticDrill(drill: Drill): boolean {
 function v12IsBallMastery(drill: Drill): boolean {
   return drill.moduleCode === 'BM';
 }
+function v12FoundationEligible(drill: Drill, ctx: GeneratorContext): boolean {
+  // Athletic legacy cards stay generator-inactive; Foundation may still use them
+  // as an explicit warm-up component without activating the new Athletic engine.
+  if (!drill.published || !drill.suitableAges.includes(ctx.ageGroup)) return false;
+  if (!fitsPlayerCount(drill, ctx.playerCount)) return false;
+  if (drill.courtArea.length && !drill.courtArea.includes(ctx.courtSize)) return false;
+  if (!hasEquipment(drill, ctx.equipment)) return false;
+  if (!ctx.withDefense && drill.withDefense) return false;
+  return true;
+}
 function v12IsMainDrill(drill: Drill): boolean {
   return !v12IsFoundationDrill(drill) &&
     drill.moduleCode !== 'DFW' &&
@@ -555,7 +565,10 @@ export function generatePractice(ctx: HistoryAwareGeneratorContext): Practice {
   // Foundation is mandatory and always ordered WUP -> Athletic -> BM.
   const foundationTarget = v12FoundationMinutes(ctx.duration);
   const warmupPool = eligible.filter((drill) => drill.moduleCode === 'WUP' && !v12IsAthleticDrill(drill));
-  const athleticPool = eligible.filter(v12IsAthleticDrill);
+  const athleticPool = DRILLS
+    .filter(v12IsAthleticDrill)
+    .filter((drill) => v12FoundationEligible(drill, ctx))
+    .filter((drill) => isDevelopmentStateEligible(drill, ctx));
   const ballMasteryPool = eligible.filter(v12IsBallMastery);
   let foundationSpent = 0;
   const addFoundation = (drill: Drill, phase: Phase): void => {
@@ -680,7 +693,7 @@ export function generatePractice(ctx: HistoryAwareGeneratorContext): Practice {
       }
     }
     // Later breaks are spread across later block boundaries.
-    if (breakNumber < breakCount && blockIndex >= 1 && blockIndex < blockItems.length - 1) {
+    if (breakNumber < breakCount && blockIndex >= 1 && (blockIndex < blockItems.length - 1 || gameItems.length > 0)) {
       pushBreak(mainPhase);
     }
   });
