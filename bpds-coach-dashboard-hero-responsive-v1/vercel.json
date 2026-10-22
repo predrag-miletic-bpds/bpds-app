@@ -1,8 +1,11 @@
 {
-  "installCommand": "true",
-  "buildCommand": "true",
+  "installCommand": "npm install --prefix .. --no-package-lock",
+  "buildCommand": "npm run build",
   "outputDirectory": "bpds/bpds-prototype/dist",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
   ]
 }
