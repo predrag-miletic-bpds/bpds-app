@@ -40,6 +40,7 @@ export function Generate() {
 function SinglePracticeGenerator() {
   const navigate = useNavigate();
   const { players, teams, setDraft, services } = useStore();
+  const [generationError, setGenerationError] = useState<string | null>(null);
 
   const [trainingType, setTrainingType] = useState<GeneratorContext['trainingType']>('Team');
   const [playerIds, setPlayerIds] = useState<string[]>(['p1', 'p2', 'p4']);
@@ -83,9 +84,14 @@ function SinglePracticeGenerator() {
     };
     // Generation goes through the practice service — the draft stays unsaved
     // until the coach saves it from the plan view.
-    const practice = services.practices.generate(ctx);
-    setDraft(practice);
-    void navigate('/practice/draft');
+    setGenerationError(null);
+    try {
+      const practice = services.practices.generate(ctx);
+      setDraft(practice);
+      void navigate('/practice/draft');
+    } catch (error) {
+      setGenerationError(error instanceof Error ? error.message : 'Practice generation failed. Please review your training settings.');
+    }
   };
 
   return (
@@ -225,6 +231,13 @@ function SinglePracticeGenerator() {
           </ChipRow>
         </Card>
 
+        {generationError ? (
+          <div role="alert" style={{ padding: '14px 16px', borderRadius: 10, border: '1px solid #ef4444', background: 'rgba(239,68,68,0.09)', color: 'var(--bpds-text, #fff)', fontSize: 14 }}>
+            <strong>Practice could not be generated.</strong>
+            <div style={{ marginTop: 6 }}>{generationError}</div>
+            <div style={{ marginTop: 6, opacity: 0.8 }}>Review age group, skill level, available equipment, court size and training focus. Locked drill prescriptions have not been changed.</div>
+          </div>
+        ) : null}
         <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
           <Button size="lg" onClick={() => navigate('/builder')}>Build Manually Instead</Button>
           <Button variant="primary" size="lg" onClick={run}>⚡ Generate Practice</Button>
