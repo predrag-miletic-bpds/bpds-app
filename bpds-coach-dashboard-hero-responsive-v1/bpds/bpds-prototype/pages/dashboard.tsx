@@ -107,9 +107,6 @@ export function Dashboard() {
             ))}
           </Card>
 
-
-        </div>
-
           <Card>
             <SectionTitle>Recently Viewed Drills</SectionTitle>
             {recentDrills.map((id) => {
