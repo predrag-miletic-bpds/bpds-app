@@ -557,12 +557,19 @@ export function generatePractice(ctx: HistoryAwareGeneratorContext): Practice {
   const warmupPool = eligible.filter((drill) => drill.moduleCode === 'WUP' && !v12IsAthleticDrill(drill));
   const athleticPool = eligible.filter(v12IsAthleticDrill);
   const ballMasteryPool = eligible.filter(v12IsBallMastery);
+  let foundationSpent = 0;
+  const addFoundation = (drill: Drill, phase: Phase): void => {
+    // A locked drill is never shortened; skip it when its full allocation cannot fit.
+    if (foundationSpent + drill.duration > foundationTarget) return;
+    add(drill, drill.duration, phase);
+    foundationSpent += drill.duration;
+  };
   const warm = v12Choose(warmupPool, ctx, used, 1, () => true);
-  warm.forEach((drill) => add(drill, Math.min(drill.duration, Math.max(3, Math.round(foundationTarget * 0.35))), 'Warm-Up and Movement Preparation'));
+  warm.forEach((drill) => addFoundation(drill, 'Warm-Up and Movement Preparation'));
   const athletic = v12Choose(athleticPool, ctx, used, 2, () => true);
-  athletic.forEach((drill) => add(drill, Math.min(drill.duration, Math.max(3, Math.round(foundationTarget * 0.30))), 'Individual Skill Activation'));
+  athletic.forEach((drill) => addFoundation(drill, 'Individual Skill Activation'));
   const bm = v12Choose(ballMasteryPool, ctx, used, 4, () => true);
-  bm.slice(0, 4).forEach((drill) => add(drill, Math.min(drill.duration, Math.max(3, Math.round(foundationTarget * 0.35 / Math.max(1, Math.min(4, bm.length))))), 'Individual Skill Activation'));
+  bm.slice(0, 4).forEach((drill) => addFoundation(drill, 'Individual Skill Activation'));
 
   const breakCount = v12BreakCount(ctx.duration);
   const reservedBreakMinutes = breakCount * 4;
@@ -623,7 +630,7 @@ export function generatePractice(ctx: HistoryAwareGeneratorContext): Practice {
   ordered.push(...gameItems);
 
   const scheduled = ordered.reduce((sum, item) => sum + item.duration, 0);
-  if (scheduled < ctx.duration) addBuffer(ctx.duration - scheduled, mainPhase);
+  if (scheduled < ctx.duration) ordered.push({ id: `item-${nextIndex++}`, kind: 'break', label: 'Coach transition / demonstration buffer', duration: ctx.duration - scheduled, phase: mainPhase });
   if (scheduled > ctx.duration) {
     // Do not shorten a locked drill dose. Remove the optional game allocation first.
     let excess = scheduled - ctx.duration;
