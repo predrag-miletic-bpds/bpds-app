@@ -471,6 +471,8 @@ function respectsPrerequisites(
 function v12BreakCount(duration: number): number {
   if (duration >= 90) return 4;
   if (duration >= 60) return 3;
+  // Short-session break dosage remains unresolved in the owner methodology.
+  // Zero is retained only as the legacy safe fallback; it is not a new rule.
   return 0;
 }
 function v12FoundationMinutes(duration: number): number {
