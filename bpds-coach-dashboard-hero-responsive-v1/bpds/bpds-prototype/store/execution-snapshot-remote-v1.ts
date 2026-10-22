@@ -38,3 +38,29 @@ export async function saveExecutionSnapshotV1(
   }
   throw new Error('Execution snapshot could not be saved: ' + error.message);
 }
+
+/** Read-only, owner-scoped retrieval. Invalid payloads are not trusted. */
+export type StoredExecutionSnapshotV1 = {
+  historyId: string;
+  snapshot: ExecutionSnapshot;
+};
+export async function loadExecutionSnapshotsV1(coachId: string): Promise<StoredExecutionSnapshotV1[]> {
+  if (!coachId) return [];
+  const { data, error } = await getSupabaseClient()
+    .from('practice_execution_snapshots')
+    .select('history_id, execution_id, practice_id, payload')
+    .eq('coach_id', coachId)
+    .order('completed_at', { ascending: false })
+    .limit(1000);
+  if (error) throw new Error('Could not load execution snapshots: ' + error.message);
+  return (data ?? []).flatMap(row => {
+    const p = row.payload as Partial<ExecutionSnapshot> | null;
+    if (!p || p.schemaVersion !== 1 || p.readiness !== 'unassessed'
+      || p.executionId !== row.execution_id || p.practiceId !== row.practice_id
+      || !Array.isArray(p.items) || !p.items.length
+      || !p.items.every(i => typeof i.drillId === 'string' && !!i.drillId && typeof i.slotId === 'string' && !!i.slotId)
+      || typeof p.completedAt !== 'string' || !Number.isFinite(Date.parse(p.completedAt))
+      || !Array.isArray(p.playerIds)) return [];
+    return [{ historyId: row.history_id as string, snapshot: p as ExecutionSnapshot }];
+  });
+}
