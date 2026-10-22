@@ -19,6 +19,7 @@ export function Dashboard() {
   const navigate = useNavigate();
   const { coach, players, teams, practices, history, recentDrills } = useStore();
   const lastPractice = practices[0];
+  const dashboardPlayers = players.slice(0, 5);
   const playersWithNotes = players.filter((p) => p.notes.length).slice(0, 4);
   const totalMinutes = history.reduce((a, h) => a + h.duration, 0);
   const totalDrills = history.reduce((a, h) => a + h.completedDrills, 0);
@@ -92,7 +93,10 @@ export function Dashboard() {
 
           <Card>
             <SectionTitle>Players</SectionTitle>
-            {players.slice(0, 5).map((p) => (
+            {dashboardPlayers.length === 0 ? (
+              <p className={styles.emptyPlayers}>No players yet. Add your first player to start tracking development.</p>
+            ) : null}
+            {dashboardPlayers.map((p) => (
               <div key={p.id} className={styles.listRow}>
                 <Avatar name={p.fullName} color={p.photoColor} size={34} />
                 <div>
@@ -105,6 +109,10 @@ export function Dashboard() {
                 </div>
               </div>
             ))}
+            <div className={styles.playersFooter}>
+              <span>{players.length > 5 ? `Showing 5 of ${players.length} players` : `${players.length} ${players.length === 1 ? 'player' : 'players'}`}</span>
+              <Button size="sm" onClick={() => navigate('/players')}>View All Players</Button>
+            </div>
           </Card>
 
           <Card>
