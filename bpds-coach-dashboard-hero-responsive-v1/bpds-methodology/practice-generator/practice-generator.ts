@@ -579,6 +579,28 @@ export function generatePractice(ctx: HistoryAwareGeneratorContext): Practice {
   takeFoundation(warmupPool, 1, 'Warm-Up and Movement Preparation');
   takeFoundation(athleticPool, 2, 'Individual Skill Activation');
   takeFoundation(ballMasteryPool, 4, 'Individual Skill Activation');
+  const foundationDrills = items.filter((item) => item.kind === 'drill' && item.drillId);
+  const hasWarmUp = foundationDrills.some((item) => {
+    const drill = DRILLS.find((candidate) => candidate.id === item.drillId);
+    return drill !== undefined && drill.moduleCode === 'WUP' && !v12IsAthleticDrill(drill);
+  });
+  const hasAthletic = foundationDrills.some((item) => {
+    const drill = DRILLS.find((candidate) => candidate.id === item.drillId);
+    return drill !== undefined && v12IsAthleticDrill(drill);
+  });
+  const hasBallMastery = foundationDrills.some((item) => {
+    const drill = DRILLS.find((candidate) => candidate.id === item.drillId);
+    return drill !== undefined && v12IsBallMastery(drill);
+  });
+  if (warmupPool.length > 0 && !hasWarmUp) {
+    throw new Error('V1.2 infeasible: eligible Warm-Up drill cannot fit the locked Foundation allocation.');
+  }
+  if (athleticPool.length > 0 && !hasAthletic) {
+    throw new Error('V1.2 infeasible: eligible Athletic Development drill cannot fit the locked Foundation allocation.');
+  }
+  if (ballMasteryPool.length > 0 && !hasBallMastery) {
+    throw new Error('V1.2 infeasible: eligible Ball Mastery drill cannot fit the locked Foundation allocation.');
+  }
 
   const breakCount = v12BreakCount(ctx.duration);
   const reservedBreakMinutes = breakCount * 4;
