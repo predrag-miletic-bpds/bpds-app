@@ -227,3 +227,18 @@
 @media (max-width: 900px) {
   .rightColumn > :nth-child(2) { min-height: 0; }
 }
+
+/* Responsive Content Stability V1 — preserve approved desktop layout. */
+.playersFooter { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-top: 12px; }
+.playersFooter > span { font-size: 12px; color: var(--bpds-slate); }
+.emptyPlayers { color: var(--bpds-slate); font-size: 13px; line-height: 1.5; padding: 10px 0; }
+.cols > div { min-width: 0; }
+.listRow > div:not(.rowRight) { min-width: 0; overflow-wrap: anywhere; }
+.rowRight { flex-shrink: 0; }
+.noteItem { overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  .listRow { flex-wrap: wrap; }
+  .rowRight { margin-left: auto; }
+  .playersFooter { align-items: center; }
+  .rightColumn { gap: 12px; }
+}
