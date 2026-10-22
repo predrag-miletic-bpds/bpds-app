@@ -641,6 +641,7 @@ export function generatePractice(ctx: HistoryAwareGeneratorContext): Practice {
       (item): item is PracticeItem => Boolean(item),
     ),
   );
+  const block2HasInternalBreak = blockItems[1]?.length >= 3;
   let fallbackBoundaryUsed = false;
   blockItems.forEach((block, blockIndex) => {
     block.forEach((item, itemIndex) => {
@@ -648,7 +649,7 @@ export function generatePractice(ctx: HistoryAwareGeneratorContext): Practice {
       // Approved position: Break 2 between exercises 2 and 3 of block 2.
       if (blockIndex === 1 && block.length >= 3 && itemIndex === 1) pushBreak(mainPhase);
     });
-    if (breakNumber < breakCount && !(blockIndex === 1 && block.length >= 3)) {
+    if (breakNumber < breakCount && !block2HasInternalBreak) {
       // Safe fallback when block 2 is shorter: place the next break at the
       // preceding block boundary, never at an arbitrary end-of-session tail.
       if (blockIndex === 0 && !fallbackBoundaryUsed) {
