@@ -15,8 +15,7 @@ function water(n, phase = 'Technical Skill Development') { return { kind: 'break
 assert.match(source, /export function generatePractice/);
 assert.match(source, /moduleCode !== 'DFW'/);
 assert.match(source, /code\.startsWith\('WUP-ATH-'/);
-assert.match(source, /slice\(0, 4\)/);
-assert.match(source, /block2HasInternalBreak/);
+assert.match(source, /takeFoundation\(ballMasteryPool, 4/);\nassert.match(source, /block2HasInternalBreak/);
 assert.match(source, /maxTransitionBuffer = 4/);
 assert.doesNotMatch(source, /mainSpent \+= drill\.duration;\s*}\s*const mainPhase/);
 assert.match(source, /resolveCoachPrescriptionV1\(drill\.id, ageGroup\)/);
