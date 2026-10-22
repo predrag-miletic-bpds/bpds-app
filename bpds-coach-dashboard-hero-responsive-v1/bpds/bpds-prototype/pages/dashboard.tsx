@@ -3,7 +3,7 @@ import { getDrill } from '@predrag-miletic/bpds-methodology.drill-catalog';
 import { getModule } from '@predrag-miletic/bpds-methodology.modules-catalog';
 import { useStore } from '../store/store.js';
 import { Avatar, Badge, Button, Card, Page, SectionTitle, levelInfo } from '../ui/ui.js';
-import styles from './dashboard.module.generated.js';
+import styles from './dashboard.module.css';
 
 const QUICK = [
   { to: '/builder', icon: '🧩', title: 'Build Your Own Practice', sub: 'Manual practice builder' },
@@ -110,7 +110,29 @@ export function Dashboard() {
 
         </div>
 
-        <div style={{ display: 'grid', gap: 20 }}>
+          <Card>
+            <SectionTitle>Recently Viewed Drills</SectionTitle>
+            {recentDrills.map((id) => {
+              const d = getDrill(id);
+              if (!d) return null;
+              const li = levelInfo(d.level);
+              return (
+                <div key={id} className={styles.listRow}>
+                  <div>
+                    <b>{d.code} — {d.name}</b>
+                    <small>{getModule(d.moduleCode)?.name}</small>
+                  </div>
+                  <div className={styles.rowRight}>
+                    <Badge tone={li.tone}>{li.label}</Badge>
+                    <Button size="sm" onClick={() => navigate(`/drill/${d.id}`)}>Open</Button>
+                  </div>
+                </div>
+              );
+            })}
+          </Card>
+        </div>
+
+        <div className={styles.rightColumn}>
           <Card>
             <SectionTitle>Progress Overview</SectionTitle>
             {Object.entries(focusCounts).map(([focus, count]) => (
@@ -154,28 +176,7 @@ export function Dashboard() {
         </div>
       </div>
 
-      <div className={styles.recentDrillsSection}>
-          <Card>
-            <SectionTitle>Recently Viewed Drills</SectionTitle>
-            {recentDrills.map((id) => {
-              const d = getDrill(id);
-              if (!d) return null;
-              const li = levelInfo(d.level);
-              return (
-                <div key={id} className={styles.listRow}>
-                  <div>
-                    <b>{d.code} — {d.name}</b>
-                    <small>{getModule(d.moduleCode)?.name}</small>
-                  </div>
-                  <div className={styles.rowRight}>
-                    <Badge tone={li.tone}>{li.label}</Badge>
-                    <Button size="sm" onClick={() => navigate(`/drill/${d.id}`)}>Open</Button>
-                  </div>
-                </div>
-              );
-            })}
-          </Card>
-      </div>
+
     </Page>
   );
 }
