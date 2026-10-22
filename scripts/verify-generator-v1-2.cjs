@@ -85,7 +85,7 @@ assert.ok(sample90.filter(x => x.drillId?.startsWith('BM-')).length <= 4);
 assert.ok(sample90.filter(x => x.label?.includes('buffer')).every(x => x.duration <= 4));
 
 const practiceService = fs.readFileSync(path.join(root, 'bpds-practices/practice-service/practice-service.ts'), 'utf8');
-assert.match(serviceSource, /practices:\s*\{[\s\S]*generate/);
+assert.match(serviceSource, /practices:\s*createPracticeService/;
 assert.match(practiceService, /generatePractice\(/);
 
 console.log('PASS V1.2 regression audit');
