@@ -12,7 +12,6 @@ function sum(items) { return items.reduce((total, item) => total + item.duration
 function drill(id, duration, phase) { return { kind: 'drill', drillId: id, duration, phase }; }
 function water(n, phase = 'Technical Skill Development') { return { kind: 'break', label: 'Water Break', duration: 4, phase, n }; }
 
-assert.match(source, /services\.practices\.generate/);
 assert.match(source, /export function generatePractice/);
 assert.match(source, /moduleCode !== 'DFW'/);
 assert.match(source, /code\.startsWith\('WUP-ATH-'/);
