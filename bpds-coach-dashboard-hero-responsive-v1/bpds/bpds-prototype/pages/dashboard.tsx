@@ -107,26 +107,7 @@ export function Dashboard() {
             ))}
           </Card>
 
-          <Card>
-            <SectionTitle>Recently Viewed Drills</SectionTitle>
-            {recentDrills.map((id) => {
-              const d = getDrill(id);
-              if (!d) return null;
-              const li = levelInfo(d.level);
-              return (
-                <div key={id} className={styles.listRow}>
-                  <div>
-                    <b>{d.code} — {d.name}</b>
-                    <small>{getModule(d.moduleCode)?.name}</small>
-                  </div>
-                  <div className={styles.rowRight}>
-                    <Badge tone={li.tone}>{li.label}</Badge>
-                    <Button size="sm" onClick={() => navigate(`/drill/${d.id}`)}>Open</Button>
-                  </div>
-                </div>
-              );
-            })}
-          </Card>
+
         </div>
 
         <div style={{ display: 'grid', gap: 20 }}>
@@ -171,6 +152,29 @@ export function Dashboard() {
             </div>
           </Card>
         </div>
+      </div>
+
+      <div className={styles.recentDrillsSection}>
+          <Card>
+            <SectionTitle>Recently Viewed Drills</SectionTitle>
+            {recentDrills.map((id) => {
+              const d = getDrill(id);
+              if (!d) return null;
+              const li = levelInfo(d.level);
+              return (
+                <div key={id} className={styles.listRow}>
+                  <div>
+                    <b>{d.code} — {d.name}</b>
+                    <small>{getModule(d.moduleCode)?.name}</small>
+                  </div>
+                  <div className={styles.rowRight}>
+                    <Badge tone={li.tone}>{li.label}</Badge>
+                    <Button size="sm" onClick={() => navigate(`/drill/${d.id}`)}>Open</Button>
+                  </div>
+                </div>
+              );
+            })}
+          </Card>
       </div>
     </Page>
   );
