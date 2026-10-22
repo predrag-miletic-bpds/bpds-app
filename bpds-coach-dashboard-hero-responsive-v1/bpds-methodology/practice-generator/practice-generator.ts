@@ -678,32 +678,31 @@ export function generatePractice(ctx: HistoryAwareGeneratorContext): Practice {
       (item): item is PracticeItem => Boolean(item),
     ),
   );
-  const block2HasInternalBreak = blockItems[1]?.length >= 3;
-  let fallbackBoundaryUsed = false;
-  blockItems.forEach((block, blockIndex) => {
-    block.forEach((item, itemIndex) => {
-      ordered.push(item);
-      // Approved position: Break 2 between exercises 2 and 3 of block 2.
-      if (blockIndex === 1 && block.length >= 3 && itemIndex === 1) pushBreak(mainPhase);
-    });
-    if (breakNumber < breakCount && !block2HasInternalBreak) {
-      // Safe fallback when block 2 is shorter: place the next break at the
-      // preceding block boundary, never at an arbitrary end-of-session tail.
-      if (blockIndex === 0 && !fallbackBoundaryUsed) {
-        pushBreak(mainPhase);
-        fallbackBoundaryUsed = true;
-      }
-    }
-    // Later breaks are spread across later block boundaries.
-    if (breakNumber < breakCount && blockIndex >= 1 && (blockIndex < blockItems.length - 1 || gameItems.length > 0)) {
-      pushBreak(mainPhase);
-    }
+  // Schedule breaks at distinct exercise boundaries rather than requiring
+  // multiple complete Main Development blocks. Never place two breaks together.
+  const flatMain = blockItems.flat();
+  const requiredMainBreaks = Math.max(0, breakCount - 1);
+  if (flatMain.length < requiredMainBreaks + 1) {
+    throw new Error(`V1.2 infeasible: ${breakCount} water breaks need at least ${requiredMainBreaks + 1} Main Development drills; only ${flatMain.length} are eligible.`);
+  }
+  const preferredBreak2 = blockItems[1]?.length >= 3
+    ? blockItems[0].length + 2
+    : Math.max(1, Math.min(flatMain.length - requiredMainBreaks, Math.round(flatMain.length / breakCount)));
+  // A boundary is the number of Main drills completed before a water break.
+  // Break 2 retains its approved exact position when block 2 has 3 drills.
+  const boundaries: number[] = [];
+  for (let k = 0; k < requiredMainBreaks; k += 1) {
+    const minimum = k === 0 ? 1 : boundaries[k - 1] + 1;
+    const maximum = flatMain.length - (requiredMainBreaks - k);
+    const desired = k === 0 ? preferredBreak2 : Math.round((flatMain.length * (k + 1)) / breakCount);
+    boundaries.push(Math.max(minimum, Math.min(maximum, desired)));
+  }
+  flatMain.forEach((item, index) => {
+    ordered.push(item);
+    if (boundaries.includes(index + 1)) pushBreak(mainPhase);
   });
-  if (breakNumber < breakCount) {
-    // A short/under-populated plan cannot satisfy all requested break positions.
-    // Keep the explicit short-session limitation visible instead of accumulating
-    // all breaks after the final exercise.
-    throw new Error(`V1.2 infeasible: ${breakCount} water breaks require more Main Development block boundaries than the eligible catalog provides.`);
+  if (breakNumber !== breakCount) {
+    throw new Error('V1.2 infeasible: could not schedule distinct water breaks before Game Application.');
   }
   ordered.push(...gameItems);
 
