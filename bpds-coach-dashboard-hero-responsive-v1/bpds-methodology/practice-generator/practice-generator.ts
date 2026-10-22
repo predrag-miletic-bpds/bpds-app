@@ -474,9 +474,9 @@ function v12BreakCount(duration: number): number {
   return 0;
 }
 function v12FoundationMinutes(duration: number): number {
-  if (duration >= 90) return 18;
-  if (duration >= 75) return 15;
-  if (duration >= 60) return 12;
+  // The shortest complete Foundation that contains WUP + Athletic + BM
+  // in the locked catalog is 18 minutes (10 + 4 + 4). Never shorten a dose.
+  if (duration >= 60) return 18;
   return Math.max(6, Math.round(duration * 0.16));
 }
 function v12GameMinutes(duration: number): number {
@@ -489,7 +489,7 @@ function v12IsFoundationDrill(drill: Drill): boolean {
   return drill.moduleCode === 'WUP' || drill.moduleCode === 'BM';
 }
 function v12IsAthleticDrill(drill: Drill): boolean {
-  return drill.moduleCode === 'WUP' && drill.category === 'Movement Preparation';
+  return drill.moduleCode === 'WUP' && drill.code.startsWith('WUP-ATH-');
 }
 function v12IsBallMastery(drill: Drill): boolean {
   return drill.moduleCode === 'BM';
@@ -564,18 +564,30 @@ export function generatePractice(ctx: HistoryAwareGeneratorContext): Practice {
     add(drill, drill.duration, phase);
     foundationSpent += drill.duration;
   };
-  const warm = v12Choose(warmupPool, ctx, used, 1, () => true);
-  warm.forEach((drill) => addFoundation(drill, 'Warm-Up and Movement Preparation'));
-  const athletic = v12Choose(athleticPool, ctx, used, 2, () => true);
-  athletic.forEach((drill) => addFoundation(drill, 'Individual Skill Activation'));
-  const bm = v12Choose(ballMasteryPool, ctx, used, 4, () => true);
-  bm.slice(0, 4).forEach((drill) => addFoundation(drill, 'Individual Skill Activation'));
+  const takeFoundation = (pool: readonly Drill[], limit: number, phase: Phase): void => {
+    const candidates = v12Choose(pool, ctx, used, pool.length, () => true);
+    let taken = 0;
+    for (const drill of candidates) {
+      if (taken >= limit) break;
+      const before = foundationSpent;
+      addFoundation(drill, phase);
+      if (foundationSpent > before) taken += 1;
+    }
+  };
+  // Try every ranked candidate until one fits; a high-ranked oversized drill
+  // must never suppress an otherwise suitable Foundation category.
+  takeFoundation(warmupPool, 1, 'Warm-Up and Movement Preparation');
+  takeFoundation(athleticPool, 2, 'Individual Skill Activation');
+  takeFoundation(ballMasteryPool, 4, 'Individual Skill Activation');
 
   const breakCount = v12BreakCount(ctx.duration);
   const reservedBreakMinutes = breakCount * 4;
   const gamePool = eligible.filter((drill) => drill.moduleCode === 'SSG');
   const game = v12Choose(gamePool, ctx, used, 1, () => true)[0];
   const gameMinutes = game ? v12GameMinutes(ctx.duration) : 0;
+  if (ctx.duration >= 75 && !game) {
+    throw new Error('V1.2 infeasible: no eligible Game Application drill is available for a full-length session.');
+  }
   if (game && gameMinutes > 0) add(game, gameMinutes, 'Competitive Play');
 
   // Main Development is focus-aware, excludes Defensive Footwork from Foundation,
@@ -603,7 +615,6 @@ export function generatePractice(ctx: HistoryAwareGeneratorContext): Practice {
       mainBlocks.push(block);
     }
     block.push(drill);
-    used.add(drill.id);
     mainSpent += drill.duration;
   }
   const mainPhase: Phase = 'Technical Skill Development';
@@ -618,28 +629,63 @@ export function generatePractice(ctx: HistoryAwareGeneratorContext): Practice {
   ordered.push(...foundationItems);
   let breakNumber = 0;
   const pushBreak = (phase: Phase): void => {
-    if (breakNumber < breakCount) { breakNumber += 1; ordered.push(v12Break(nextIndex++, phase)); }
+    if (breakNumber < breakCount) {
+      breakNumber += 1;
+      ordered.push(v12Break(nextIndex++, phase));
+    }
   };
+  // Break 1 is always after Foundation.
   pushBreak('Individual Skill Activation');
-  mainItems.forEach((item, index) => {
-    ordered.push(item);
-    // Break 2 is explicitly inside block 2 only when there are >=3 exercises.
-    if (breakNumber === 1 && mainItems.length >= 6 && index === 4) pushBreak(mainPhase);
+  const blockItems = mainBlocks.map((block) =>
+    block.map((drill) => mainItems.find((item) => item.drillId === drill.id)).filter(
+      (item): item is PracticeItem => Boolean(item),
+    ),
+  );
+  let fallbackBoundaryUsed = false;
+  blockItems.forEach((block, blockIndex) => {
+    block.forEach((item, itemIndex) => {
+      ordered.push(item);
+      // Approved position: Break 2 between exercises 2 and 3 of block 2.
+      if (blockIndex === 1 && block.length >= 3 && itemIndex === 1) pushBreak(mainPhase);
+    });
+    if (breakNumber < breakCount && !(blockIndex === 1 && block.length >= 3)) {
+      // Safe fallback when block 2 is shorter: place the next break at the
+      // preceding block boundary, never at an arbitrary end-of-session tail.
+      if (blockIndex === 0 && !fallbackBoundaryUsed) {
+        pushBreak(mainPhase);
+        fallbackBoundaryUsed = true;
+      }
+    }
+    // Later breaks are spread across later block boundaries.
+    if (breakNumber < breakCount && blockIndex >= 1 && blockIndex < blockItems.length - 1) {
+      pushBreak(mainPhase);
+    }
   });
-  while (breakNumber < breakCount) pushBreak(mainPhase);
+  if (breakNumber < breakCount) {
+    // A short/under-populated plan cannot satisfy all requested break positions.
+    // Keep the explicit short-session limitation visible instead of accumulating
+    // all breaks after the final exercise.
+    throw new Error(`V1.2 infeasible: ${breakCount} water breaks require more Main Development block boundaries than the eligible catalog provides.`);
+  }
   ordered.push(...gameItems);
 
   const scheduled = ordered.reduce((sum, item) => sum + item.duration, 0);
-  if (scheduled < ctx.duration) ordered.push({ id: `item-${nextIndex++}`, kind: 'break', label: 'Coach transition / demonstration buffer', duration: ctx.duration - scheduled, phase: mainPhase });
-  if (scheduled > ctx.duration) {
-    // Do not shorten a locked drill dose. Remove the optional game allocation first.
-    let excess = scheduled - ctx.duration;
-    for (let index = ordered.length - 1; index >= 0 && excess > 0; index -= 1) {
-      const item = ordered[index];
-      if (item.kind === 'drill' && item.phase === 'Competitive Play' && item.duration <= excess) {
-        ordered.splice(index, 1); excess -= item.duration;
-      }
-    }
+  const remainder = ctx.duration - scheduled;
+  const maxTransitionBuffer = 4;
+  if (remainder > maxTransitionBuffer) {
+    throw new Error(`V1.2 infeasible: locked drill allocations leave ${remainder} unallocated minutes; no arbitrary transition buffer is permitted.`);
+  }
+  if (remainder < 0) {
+    throw new Error(`V1.2 infeasible: locked drill allocations exceed the requested ${ctx.duration}-minute session by ${Math.abs(remainder)} minutes.`);
+  }
+  if (remainder > 0) {
+    ordered.push({
+      id: `item-${nextIndex++}`,
+      kind: 'break',
+      label: 'Coach transition / demonstration buffer (bounded)',
+      duration: remainder,
+      phase: mainPhase,
+    });
   }
   const finalItems = ordered.map((item, index) => ({ ...item, id: `item-${index + 1}` }));
   const focusLabel = ctx.primaryFocus === 'Complete Player Development' ? 'Complete Development' : ctx.primaryFocus;
