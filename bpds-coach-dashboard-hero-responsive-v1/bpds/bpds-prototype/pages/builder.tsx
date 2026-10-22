@@ -63,6 +63,7 @@ export function Builder() {
   };
 
   const selectedTeam = teams.find((team) => team.id === teamId);
+  const ageGroup = selectedTeam?.ageGroup ?? source?.ageGroup ?? 'U16';
   const today = new Date().toISOString().slice(0, 10);
 
   const build = (): Practice => ({
