@@ -460,175 +460,182 @@ function respectsPrerequisites(
  * Fills each phase of the BPDS progression in order, respecting age, level,
  * equipment, court, player count and prerequisite relationships.
  */
-export function generatePractice(ctx: HistoryAwareGeneratorContext): Practice {
-  const pool = DRILLS.filter((d) => isEligible(d, ctx)).filter((d) =>
-    isDevelopmentStateEligible(d, ctx)
-  );
-  const phase6A2WupPool = phase6A2MovementPreparationCandidates(ctx).filter((d) =>
-    isDevelopmentStateEligible(d, ctx)
-  );
-  const chosen: Drill[] = [];
-  const items: PracticeItem[] = [];
-  const selectedModuleMinutes = (moduleCode: string): number =>
-    items.reduce((total, item) => {
-      if (!item.drillId) return total;
-      const selected = DRILLS.find((candidate) => candidate.id === item.drillId);
-      return selected && resolvePracticeModuleCode(selected) === moduleCode
-        ? total + item.duration
-        : total;
-    }, 0);
-  const withinWeeklyModuleTarget = (drill: Drill): boolean => {
-    const moduleCode = resolvePracticeModuleCode(drill);
-    const target = ctx.weeklyProgramming?.moduleMinuteTargets[moduleCode];
-    return target === undefined || selectedModuleMinutes(moduleCode) < target;
+/**
+ * V1.2 methodology generator.
+ *
+ * The legacy service surface remains unchanged. This planner only changes the
+ * generated item architecture: Foundation -> Main Development -> Game
+ * Application, with explicit water breaks and a named transition buffer when
+ * the locked catalogue cannot exactly tile the requested duration.
+ */
+function v12BreakCount(duration: number): number {
+  if (duration >= 90) return 4;
+  if (duration >= 60) return 3;
+  return 0;
+}
+function v12FoundationMinutes(duration: number): number {
+  if (duration >= 90) return 18;
+  if (duration >= 75) return 15;
+  if (duration >= 60) return 12;
+  return Math.max(6, Math.round(duration * 0.16));
+}
+function v12GameMinutes(duration: number): number {
+  if (duration >= 90) return 18;
+  if (duration >= 75) return 15;
+  if (duration >= 60) return 10;
+  return 0;
+}
+function v12IsFoundationDrill(drill: Drill): boolean {
+  return drill.moduleCode === 'WUP' || drill.moduleCode === 'BM';
+}
+function v12IsAthleticDrill(drill: Drill): boolean {
+  return drill.moduleCode === 'WUP' && drill.category === 'Movement Preparation';
+}
+function v12IsBallMastery(drill: Drill): boolean {
+  return drill.moduleCode === 'BM';
+}
+function v12IsMainDrill(drill: Drill): boolean {
+  return !v12IsFoundationDrill(drill) &&
+    drill.moduleCode !== 'DFW' &&
+    drill.moduleCode !== 'SSG' &&
+    drill.moduleCode !== 'WUP';
+}
+function v12Item(
+  index: number,
+  drill: Drill,
+  duration: number,
+  phase: Phase,
+  ageGroup: string,
+): PracticeItem {
+  const prescription = resolveCoachPrescriptionV1(drill.id, ageGroup);
+  return {
+    id: `item-${index}`,
+    kind: 'drill',
+    drillId: drill.id,
+    duration,
+    phase,
+    ...(prescription ? { coachPrescription: prescription } : {}),
   };
-
-  const phases = PHASE_ORDER.filter((p) => {
-    if (p === 'Competitive Play') return ctx.competitive || ctx.smallSidedGame;
-    if (p === 'Game Application') return ctx.duration >= 60;
-    if (p === 'Decision Making') return ctx.duration >= 45;
-    return true;
-  });
-
-  phases.forEach((phase) => {
-    const budget = Math.round(ctx.duration * PHASE_WEIGHT[phase]);
-    if (budget < 3) return;
-    const targetLevel = targetLevelForPhase(phase, ctx.skillLevel);
-    const phasePool = phase === 'Warm-Up and Movement Preparation'
-      ? Array.from(new Map([...pool, ...phase6A2WupPool].map((drill) => [drill.id, drill])).values())
-      : pool;
-    const candidates = phasePool
-      .filter((d) => drillPhase(d) === phase)
-      .filter((d) => !chosen.some((c) => c.id === d.id))
-      .filter((d) => respectsPrerequisites(d, chosen, ctx))
-      .sort((a, b) => {
-        const requestedFocus = phase6A2Focus(ctx);
-        if (phase === 'Warm-Up and Movement Preparation' && requestedFocus) {
-          const aExact = normalizeDrillGeneratorMetadata(a).athleticFocus === requestedFocus;
-          const bExact = normalizeDrillGeneratorMetadata(b).athleticFocus === requestedFocus;
-          if (aExact !== bExact) return aExact ? -1 : 1;
-        }
-        const progressionDelta = compareProgressionPreference(a, b, ctx, pool);
-        return progressionDelta !== 0
-          ? progressionDelta
-          : score(b, ctx, targetLevel) - score(a, ctx, targetLevel);
-      });
-
-    let spent = 0;
-    candidates.forEach((d) => {
-      if (spent >= budget || !withinWeeklyModuleTarget(d)) return;
-      const remaining = budget - spent;
-      if (remaining < 3) return;
-      const dur = Math.min(d.duration, Math.max(4, remaining));
-      chosen.push(d);
-      items.push({
-        id: `item-${items.length + 1}`,
-        kind: 'drill',
-        drillId: d.id,
-        duration: dur,
-        phase,
-      });
-      spent += dur;
-    });
-  });
-
-  // Keep phase allocation as the first pass. Spend only unused time afterward
-  // without changing the selected drills' configured durations or final order.
-  const primaryFocusModules =
-    ctx.primaryFocus === 'Ball Handling'
-      ? ['SBH', 'MBH', 'COD', 'BM']
-      : ctx.primaryFocus === 'Change of Direction'
-        ? ['SBH', 'MBH', 'COD']
-        : FOCUS_TO_MODULES[ctx.primaryFocus] ?? [];
-  const secondaryFocusModules = FOCUS_TO_MODULES[ctx.secondaryFocus] ?? [];
-  const redistributionPriority = (drill: Drill): number => {
-    const primaryIndex = primaryFocusModules.indexOf(drill.moduleCode);
-    const weeklyIndex =
-      ctx.weeklyProgramming?.priorityModuleCodes.indexOf(
-        resolvePracticeModuleCode(drill)
-      ) ?? -1;
-    if (primaryIndex >= 0) {
-      return weeklyIndex >= 0 ? weeklyIndex : 100 + primaryIndex;
-    }
-    const secondaryIndex = secondaryFocusModules.indexOf(drill.moduleCode);
-    if (secondaryIndex >= 0) {
-      return 1_000 + (weeklyIndex >= 0 ? weeklyIndex : 100 + secondaryIndex);
-    }
-    return 2_000 + (weeklyIndex >= 0 ? weeklyIndex : 100);
-  };
-  const redistributionCandidates = pool
-    .filter((drill) => !(phase6A2WupPool.length > 0 && drillPhase(drill) === "Warm-Up and Movement Preparation"))
-    .filter((drill) => !chosen.some((current) => current.id === drill.id))
+}
+function v12Break(index: number, phase: Phase, label = 'Water Break'): PracticeItem {
+  return { id: `item-${index}`, kind: 'break', label, duration: 4, phase };
+}
+function v12Choose(
+  pool: readonly Drill[],
+  ctx: HistoryAwareGeneratorContext,
+  used: ReadonlySet<string>,
+  limit: number,
+  predicate: (drill: Drill) => boolean,
+): Drill[] {
+  const target = targetLevelForPhase('Technical Skill Development', ctx.skillLevel);
+  return pool
+    .filter((drill) => !used.has(drill.id) && predicate(drill))
     .sort((a, b) => {
-      const aPrerequisitesReady = respectsPrerequisites(a, chosen, ctx);
-      const bPrerequisitesReady = respectsPrerequisites(b, chosen, ctx);
-      if (aPrerequisitesReady !== bPrerequisitesReady) {
-        return aPrerequisitesReady ? -1 : 1;
+      const progression = compareProgressionPreference(a, b, ctx, pool);
+      return progression || (score(b, ctx, target) - score(a, ctx, target)) || a.id.localeCompare(b.id);
+    })
+    .slice(0, limit);
+}
+export function generatePractice(ctx: HistoryAwareGeneratorContext): Practice {
+  const eligible = DRILLS
+    .filter((drill) => isEligible(drill, ctx))
+    .filter((drill) => isDevelopmentStateEligible(drill, ctx));
+  const used = new Set<string>();
+  const items: PracticeItem[] = [];
+  let nextIndex = 1;
+  const add = (drill: Drill, duration: number, phase: Phase): void => {
+    if (duration <= 0 || used.has(drill.id)) return;
+    used.add(drill.id);
+    items.push(v12Item(nextIndex++, drill, duration, phase, ctx.ageGroup));
+  };
+  const addBuffer = (duration: number, phase: Phase): void => {
+    if (duration > 0) items.push(v12Break(nextIndex++, phase, 'Coach transition / demonstration buffer'));
+  };
+
+  // Foundation is mandatory and always ordered WUP -> Athletic -> BM.
+  const foundationTarget = v12FoundationMinutes(ctx.duration);
+  const warmupPool = eligible.filter((drill) => drill.moduleCode === 'WUP' && !v12IsAthleticDrill(drill));
+  const athleticPool = eligible.filter(v12IsAthleticDrill);
+  const ballMasteryPool = eligible.filter(v12IsBallMastery);
+  const warm = v12Choose(warmupPool, ctx, used, 1, () => true);
+  warm.forEach((drill) => add(drill, Math.min(drill.duration, Math.max(3, Math.round(foundationTarget * 0.35))), 'Warm-Up and Movement Preparation'));
+  const athletic = v12Choose(athleticPool, ctx, used, 2, () => true);
+  athletic.forEach((drill) => add(drill, Math.min(drill.duration, Math.max(3, Math.round(foundationTarget * 0.30))), 'Individual Skill Activation'));
+  const bm = v12Choose(ballMasteryPool, ctx, used, 4, () => true);
+  bm.slice(0, 4).forEach((drill) => add(drill, Math.min(drill.duration, Math.max(3, Math.round(foundationTarget * 0.35 / Math.max(1, Math.min(4, bm.length))))), 'Individual Skill Activation'));
+
+  const breakCount = v12BreakCount(ctx.duration);
+  const reservedBreakMinutes = breakCount * 4;
+  const gamePool = eligible.filter((drill) => drill.moduleCode === 'SSG');
+  const game = v12Choose(gamePool, ctx, used, 1, () => true)[0];
+  const gameMinutes = game ? v12GameMinutes(ctx.duration) : 0;
+  if (game && gameMinutes > 0) add(game, gameMinutes, 'Competitive Play');
+
+  // Main Development is focus-aware, excludes Defensive Footwork from Foundation,
+  // and groups no more than three connected drills per block.
+  const mainPool = eligible.filter(v12IsMainDrill);
+  const primaryCodes = new Set(FOCUS_TO_MODULES[ctx.primaryFocus] ?? []);
+  const secondaryCodes = new Set(FOCUS_TO_MODULES[ctx.secondaryFocus] ?? []);
+  const mainSorted = mainPool
+    .filter((drill) => !used.has(drill.id))
+    .sort((a, b) => {
+      const af = primaryCodes.has(a.moduleCode) ? 0 : secondaryCodes.has(a.moduleCode) ? 1 : 2;
+      const bf = primaryCodes.has(b.moduleCode) ? 0 : secondaryCodes.has(b.moduleCode) ? 1 : 2;
+      return af - bf || score(b, ctx, targetLevelForPhase('Technical Skill Development', ctx.skillLevel)) -
+        score(a, ctx, targetLevelForPhase('Technical Skill Development', ctx.skillLevel)) || a.id.localeCompare(b.id);
+    });
+  const targetMain = Math.max(0, ctx.duration - foundationTarget - reservedBreakMinutes - gameMinutes);
+  let mainSpent = 0;
+  const mainBlocks: Drill[][] = [];
+  for (const drill of mainSorted) {
+    if (mainSpent + drill.duration > targetMain || used.has(drill.id)) continue;
+    let block = mainBlocks[mainBlocks.length - 1];
+    if (!block || block.length >= 3) {
+      if (mainBlocks.length >= 4) break;
+      block = [];
+      mainBlocks.push(block);
+    }
+    block.push(drill);
+    used.add(drill.id);
+    mainSpent += drill.duration;
+  }
+  const mainPhase: Phase = 'Technical Skill Development';
+  mainBlocks.flat().forEach((drill) => add(drill, drill.duration, mainPhase));
+
+  // Rebuild order into Foundation -> Break 1 -> Main (with Break 2 in block 2)
+  // -> later breaks -> Game. The legacy PracticeItem schema is retained.
+  const foundationItems = items.filter((item) => item.phase === 'Warm-Up and Movement Preparation' || (item.phase === 'Individual Skill Activation' && item.drillId && (DRILLS.find((d) => d.id === item.drillId)?.moduleCode === 'WUP' || DRILLS.find((d) => d.id === item.drillId)?.moduleCode === 'BM')));
+  const gameItems = items.filter((item) => item.phase === 'Competitive Play');
+  const mainItems = items.filter((item) => item.phase === mainPhase);
+  const ordered: PracticeItem[] = [];
+  ordered.push(...foundationItems);
+  let breakNumber = 0;
+  const pushBreak = (phase: Phase): void => {
+    if (breakNumber < breakCount) { breakNumber += 1; ordered.push(v12Break(nextIndex++, phase)); }
+  };
+  pushBreak('Individual Skill Activation');
+  mainItems.forEach((item, index) => {
+    ordered.push(item);
+    // Break 2 is explicitly inside block 2 only when there are >=3 exercises.
+    if (breakNumber === 1 && mainItems.length >= 6 && index === 4) pushBreak(mainPhase);
+  });
+  while (breakNumber < breakCount) pushBreak(mainPhase);
+  ordered.push(...gameItems);
+
+  const scheduled = ordered.reduce((sum, item) => sum + item.duration, 0);
+  if (scheduled < ctx.duration) addBuffer(ctx.duration - scheduled, mainPhase);
+  if (scheduled > ctx.duration) {
+    // Do not shorten a locked drill dose. Remove the optional game allocation first.
+    let excess = scheduled - ctx.duration;
+    for (let index = ordered.length - 1; index >= 0 && excess > 0; index -= 1) {
+      const item = ordered[index];
+      if (item.kind === 'drill' && item.phase === 'Competitive Play' && item.duration <= excess) {
+        ordered.splice(index, 1); excess -= item.duration;
       }
-      const progressionDelta = compareProgressionPreference(a, b, ctx, pool);
-      if (progressionDelta !== 0) return progressionDelta;
-      const priorityDelta = redistributionPriority(a) - redistributionPriority(b);
-      if (priorityDelta !== 0) return priorityDelta;
-      const targetA = targetLevelForPhase(drillPhase(a), ctx.skillLevel);
-      const targetB = targetLevelForPhase(drillPhase(b), ctx.skillLevel);
-      const scoreDelta = score(b, ctx, targetB) - score(a, ctx, targetA);
-      return scoreDelta !== 0 ? scoreDelta : a.id.localeCompare(b.id);
-    });
-  let remainingMinutes = ctx.duration - items.reduce((total, item) => total + item.duration, 0);
-  redistributionCandidates.forEach((drill) => {
-    if (remainingMinutes <= 5 || drill.duration > remainingMinutes || !respectsPrerequisites(drill, chosen, ctx) || !withinWeeklyModuleTarget(drill)) return;
-    chosen.push(drill);
-    items.push({ id: 'item-' + (items.length + 1), kind: 'drill', drillId: drill.id, duration: drill.duration, phase: drillPhase(drill) });
-    remainingMinutes -= drill.duration;
-  });
-
-  // Weekly module targets guide allocation, but a readiness-blocked target can
-  // leave its reserved minutes unusable. Fill only that residual budget from
-  // the same deterministic, state-eligible candidate order.
-  if (ctx.weeklyProgramming && remainingMinutes > 5) {
-    redistributionCandidates.forEach((drill) => {
-      if (
-        remainingMinutes <= 5 ||
-        drill.duration > remainingMinutes ||
-        chosen.some((current) => current.id === drill.id) ||
-        !respectsPrerequisites(drill, chosen, ctx)
-      ) return;
-      chosen.push(drill);
-      items.push({ id: 'item-' + (items.length + 1), kind: 'drill', drillId: drill.id, duration: drill.duration, phase: drillPhase(drill) });
-      remainingMinutes -= drill.duration;
-    });
+    }
   }
-
-  const normalizedItems = normalizePracticeItems(items).map((item) => {
-    if (item.kind !== 'drill') return item;
-    const coachPrescription = resolveCoachPrescriptionV1(item.drillId, ctx.ageGroup);
-    return coachPrescription ? { ...item, coachPrescription } : item;
-  });
-
-  if (ctx.duration >= 60 && normalizedItems.length > 4) {
-    insertWaterBreakAtModuleBoundary(normalizedItems);
-  }
-
-  // Reconcile the final rendered duration once, without changing any drill dose.
-  // A break may make an otherwise within-budget selection overrun the requested time.
-  const plannedMinutes = () => normalizedItems.reduce((total, item) => total + item.duration, 0);
-  const currentMinutes = plannedMinutes();
-  if (currentMinutes > ctx.duration) {
-    const currentDifference = currentMinutes - ctx.duration;
-    const trimIndex = normalizedItems.map((item, index) => ({ item, index })).reverse().find(({ item }) => {
-      if (item.kind !== 'drill' || item.phase === 'Warm-Up and Movement Preparation') return false;
-      const drill = DRILLS.find((candidate) => candidate.id === item.drillId);
-      if (drill === undefined || primaryFocusModules.includes(drill.moduleCode)) return false;
-      return Math.abs(ctx.duration - (currentMinutes - item.duration)) < currentDifference;
-    });
-    if (trimIndex) normalizedItems.splice(trimIndex.index, 1);
-  }
-
-  const focusLabel =
-    ctx.primaryFocus === 'Complete Player Development'
-      ? 'Complete Development'
-      : ctx.primaryFocus;
-
+  const finalItems = ordered.map((item, index) => ({ ...item, id: `item-${index + 1}` }));
+  const focusLabel = ctx.primaryFocus === 'Complete Player Development' ? 'Complete Development' : ctx.primaryFocus;
   return {
     id: `gen-${Date.now()}`,
     name: `${ctx.ageGroup} ${ctx.skillLevel} ${focusLabel} Practice`,
@@ -643,7 +650,7 @@ export function generatePractice(ctx: HistoryAwareGeneratorContext): Practice {
     equipment: ctx.equipment,
     courtSize: ctx.courtSize,
     objective: buildObjective(ctx),
-    items: normalizedItems,
+    items: finalItems,
     status: 'Draft',
     lastOpened: new Date().toISOString().slice(0, 10),
   };
