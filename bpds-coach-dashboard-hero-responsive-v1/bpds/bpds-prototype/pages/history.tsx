@@ -9,7 +9,7 @@ import { Badge, Button, Card, Empty, Page, PageHead, SectionTitle } from '../ui/
 /** Training history — completed sessions across players and teams. */
 export function History() {
   const navigate = useNavigate();
-  const { coach, loggedIn, history, practices, players, teams, deleteHistoryEntry } = useStore();
+  const { coach, loggedIn, history, practices, players, teams } = useStore();
   const [snapshots, setSnapshots] = useState<StoredExecutionSnapshotV1[]>([]);
   const [snapshotError, setSnapshotError] = useState<string | null>(null);
   const [snapshotLoading, setSnapshotLoading] = useState(false);
@@ -28,7 +28,6 @@ export function History() {
   const verifiedHistoryIds = new Set(verifiedSnapshots.map(row => row.historyId));
   const verifiedDrillCount = verifiedSnapshots.reduce((n, row) => n + row.snapshot.items.length, 0);
   const progression = buildProgressionHistory(history, practices);
-  const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const totalMinutes = history.reduce((a, h) => a + h.duration, 0);
   const totalDrills = history.reduce((a, h) => a + h.completedDrills, 0);
 
@@ -114,17 +113,7 @@ export function History() {
                   </div>
           <div style={{ minWidth: 120 }}>
             {h.practiceId ? <Button size='sm' full variant='primary' onClick={() => navigate(`/practice/${h.practiceId}`)}>View</Button> : null}
-            {confirmingId === h.id ? (
-              <div style={{ display: 'grid', gap: 7 }}>
-                <div style={{ fontSize: 12, fontWeight: 750, color: 'var(--bpds-slate)' }}>Delete this entry?</div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <Button size='sm' variant='secondary' onClick={() => setConfirmingId(null)}>Cancel</Button>
-                  <Button size='sm' variant='danger' onClick={() => { deleteHistoryEntry(h.id); setConfirmingId(null); }}>Delete</Button>
-                </div>
-              </div>
-            ) : (
-              <Button size='sm' full variant='danger' onClick={() => setConfirmingId(h.id)}>Delete</Button>
-            )}
+
           </div>
                 </div>
               </Card>
