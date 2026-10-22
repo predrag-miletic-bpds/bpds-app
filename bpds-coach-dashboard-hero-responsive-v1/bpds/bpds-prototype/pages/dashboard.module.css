@@ -114,8 +114,8 @@
 
 .cols {
   display: grid;
-  grid-template-columns: 1.6fr 1fr;
-  gap: 16px;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 14px;
   align-items: start;
 }
 
@@ -209,4 +209,14 @@
 }
 @media (max-width: 540px) {
   .quickGrid { grid-template-columns: 1fr; }
+}
+
+/* Dashboard V3: no orphaned tall drill panel beside a short account column. */
+.recentDrillsSection {
+  margin-top: 14px;
+  min-width: 0;
+}
+.recentDrillsSection > * { width: 100%; }
+@media (max-width: 900px) {
+  .recentDrillsSection { margin-top: 12px; }
 }
