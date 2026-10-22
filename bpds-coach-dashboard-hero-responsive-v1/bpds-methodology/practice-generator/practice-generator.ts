@@ -590,7 +590,7 @@ export function generatePractice(ctx: HistoryAwareGeneratorContext): Practice {
   // Try every ranked candidate until one fits; a high-ranked oversized drill
   // must never suppress an otherwise suitable Foundation category.
   takeFoundation(warmupPool, 1, 'Warm-Up and Movement Preparation');
-  takeFoundation(athleticPool, 2, 'Individual Skill Activation');
+  takeFoundation(athleticPool, 1, 'Individual Skill Activation');
   takeFoundation(ballMasteryPool, 4, 'Individual Skill Activation');
   const foundationDrills = items.filter((item) => item.kind === 'drill' && item.drillId);
   const hasWarmUp = foundationDrills.some((item) => {
