@@ -18,7 +18,7 @@ assert.match(source, /code\.startsWith\('WUP-ATH-'/);
 assert.match(source, /takeFoundation\(ballMasteryPool, 4/);
 assert.match(source, /block2HasInternalBreak/);
 assert.match(source, /maxTransitionBuffer = 4/);
-assert.doesNotMatch(source, /mainSpent \+= drill\.duration;\s*}\s*const mainPhase/);
+assert.doesNotMatch(source, /block\.push\(drill\);\s*used\.add/);
 assert.match(source, /resolveCoachPrescriptionV1\(drill\.id, ageGroup\)/);
 assert.match(source, /export function findAlternatives/);
 assert.match(source, /alternatives: findAlternatives/);
