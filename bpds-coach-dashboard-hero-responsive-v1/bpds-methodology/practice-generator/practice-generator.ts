@@ -633,6 +633,20 @@ export function generatePractice(ctx: HistoryAwareGeneratorContext): Practice {
   const mainPool = eligible.filter(v12IsMainDrill);
   const primaryCodes = new Set(FOCUS_TO_MODULES[ctx.primaryFocus] ?? []);
   const secondaryCodes = new Set(FOCUS_TO_MODULES[ctx.secondaryFocus] ?? []);
+  // Athletic focus is opt-in only. Legacy WUP-ATH drills remain inactive in
+  // the general generator and are admitted here through a narrow, explicit
+  // eligibility path; Foundation retains its own mandatory athletic segment.
+  const athleticPrimary = ctx.primaryFocus === 'Athletic Development';
+  const athleticSecondary = ctx.secondaryFocus === 'Athletic Development';
+  const athleticRequested = athleticPrimary || athleticSecondary;
+  const selectedAthletic = athleticRequested
+    ? athleticPool.filter((drill) => !used.has(drill.id))
+        .sort((a, b) => compareDrillExecutionProgression(a, b) || a.id.localeCompare(b.id))
+        .slice(0, athleticPrimary ? 2 : 1)
+    : [];
+  if (athleticRequested && selectedAthletic.length === 0) {
+    throw new Error('Athletic Development: no additional age-, equipment- and space-eligible athletic drill is available beyond Foundation. Choose another focus or adjust settings.');
+  }
   const mainSorted = mainPool
     .filter((drill) => !used.has(drill.id))
     .sort((a, b) => {
@@ -641,6 +655,11 @@ export function generatePractice(ctx: HistoryAwareGeneratorContext): Practice {
       return af - bf || score(b, ctx, targetLevelForPhase('Technical Skill Development', ctx.skillLevel)) -
         score(a, ctx, targetLevelForPhase('Technical Skill Development', ctx.skillLevel)) || a.id.localeCompare(b.id);
     });
+  // Reserve real Main Development positions for the coach-selected athletic
+  // focus. No global activation of legacy Athletic or alteration of doses.
+  if (athleticRequested) {
+    mainSorted.unshift(...selectedAthletic);
+  }
   const targetMain = Math.max(0, ctx.duration - foundationTarget - reservedBreakMinutes - gameMinutes);
   let mainSpent = 0;
   const mainBlocks: Drill[][] = [];
