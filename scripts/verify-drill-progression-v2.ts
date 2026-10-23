@@ -40,3 +40,34 @@ for (const [moduleCode, drills] of byModule) {
   }
 }
 console.log('PASS all active modules: deterministic progressive ordering');
+
+import { generatePractice } from '../bpds-coach-dashboard-hero-responsive-v1/bpds-methodology/practice-generator/practice-generator';
+const equipment = [...new Set(DRILLS.flatMap((drill) => drill.equipment))];
+const base = {
+  trainingType: 'Team' as const, playerIds: ['progression-test-player'],
+  ageGroup: 'U12' as const, skillLevel: 'Advanced' as const,
+  playerCount: 8, baskets: 2, courtSize: 'Half court' as const,
+  equipment, primaryFocus: 'Shooting', secondaryFocus: 'Decision Making',
+  intensity: 'Medium' as const, withDefense: true,
+  competitive: true, smallSidedGame: true,
+};
+for (const duration of [75, 90]) {
+  const practice = generatePractice({ ...base, duration });
+  assert.equal(practice.items.reduce((total, item) => total + item.duration, 0), duration);
+  const actual = practice.items.filter((item) => item.kind === 'drill').map((item) => byId.get(item.drillId!)).filter((d): d is (typeof DRILLS)[number] => Boolean(d));
+  assert.equal(new Set(actual.map((d) => d.id)).size, actual.length);
+  for (const [moduleCode] of byModule) {
+    const inModule = actual.filter((d) => d.moduleCode === moduleCode);
+    for (let i = 1; i < inModule.length; i += 1) {
+      assert.ok(compareDrillExecutionProgression(inModule[i - 1], inModule[i]) <= 0,
+        moduleCode + ': generator reversed execution progression across blocks');
+    }
+  }
+  const shooting = actual.filter((d) => d.moduleCode === 'SH').map((d) => d.id);
+  const trio = ['sh-l1-001', 'sh-ft-001', 'sh-l2-003'].filter((id) => shooting.includes(id));
+  assert.deepEqual(shooting.filter((id) => trio.includes(id)), trio);
+  assert.equal(practice.items.filter((item) => item.label === 'Water Break').length, duration === 90 ? 4 : 3);
+  assert.equal(practice.items.at(-1)?.phase, 'Competitive Play');
+  console.log('Progression ' + duration + 'm:', practice.items.map((item) => item.drillId ?? item.label).join(' > '));
+}
+console.log('PASS runtime U12 Advanced Shooting / Decision Making 75m and 90m');
