@@ -25,3 +25,18 @@ for (const e of evidence) {
 console.log('Active drill catalog audit:', JSON.stringify([...counts].sort()));
 console.log('Manual review needed:', evidence.filter((e) => e.needsReview).length, '/', evidence.length);
 console.log('PASS progression evidence and approved Shooting trio');
+
+const byModule = new Map<string, typeof DRILLS>();
+for (const drill of DRILLS) {
+  const list = byModule.get(drill.moduleCode) ?? [];
+  list.push(drill);
+  byModule.set(drill.moduleCode, list);
+}
+for (const [moduleCode, drills] of byModule) {
+  const sorted = [...drills].sort(compareDrillExecutionProgression);
+  for (let i = 1; i < sorted.length; i += 1) {
+    assert.ok(compareDrillExecutionProgression(sorted[i - 1], sorted[i]) <= 0,
+      moduleCode + ': difficulty order must be nondecreasing');
+  }
+}
+console.log('PASS all active modules: deterministic progressive ordering');
