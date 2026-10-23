@@ -50,9 +50,12 @@ export function progressionEvidence(drill: Drill): ProgressionEvidence {
 export function compareDrillExecutionProgression(a: Drill, b: Drill): number {
   if (a.moduleCode !== b.moduleCode) return 0;
   const x = progressionEvidence(a), y = progressionEvidence(b);
+  // Level remains the primary hard ordering rule. Manual ranks only resolve
+  // equal-level tasks; never let a Level 2 drill precede a Level 1 drill.
+  if (x.level !== y.level) return x.level - y.level;
   if (x.manualRank !== null && y.manualRank !== null)
     return x.manualRank - y.manualRank;
-  return x.level - y.level ||
+  return
     (x.stage ?? 0) - (y.stage ?? 0) ||
     (x.movement ?? 0) - (y.movement ?? 0) ||
     (x.defense - y.defense) ||
