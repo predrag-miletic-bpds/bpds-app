@@ -55,8 +55,7 @@ export function compareDrillExecutionProgression(a: Drill, b: Drill): number {
   if (x.level !== y.level) return x.level - y.level;
   if (x.manualRank !== null && y.manualRank !== null)
     return x.manualRank - y.manualRank;
-  return
-    (x.stage ?? 0) - (y.stage ?? 0) ||
+  return (x.stage ?? 0) - (y.stage ?? 0) ||
     (x.movement ?? 0) - (y.movement ?? 0) ||
     (x.defense - y.defense) ||
     (x.cognitive ?? 0) - (y.cognitive ?? 0) ||
