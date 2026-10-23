@@ -27,6 +27,7 @@ import {
   PROGRESSION_STAGE_ORDER,
 } from './generator-engine-v1.js';
 import { resolveCoachPrescriptionV1 } from '../practice-prescriptions/coach-prescriptions-v1.js';
+import { compareDrillExecutionProgression } from './drill-progression-matrix-v2.js';
 
 /** Read-only guidance supplied only while materializing a coordinated week. */
 export type WeeklyProgrammingGuidance = {
@@ -658,21 +659,6 @@ export function generatePractice(ctx: HistoryAwareGeneratorContext): Practice {
   // drills and locked doses, but progress within each Main Development block
   // from lower to higher level, then from lower to higher execution demand.
   // Preserve first-seen module order so the coach's primary focus remains first.
-  const executionDemand = (drill: Drill): number => {
-    const descriptor = String(
-      (drill as Drill & { name?: string; title?: string }).name ??
-      (drill as Drill & { title?: string }).title ?? ''
-    ).toLowerCase();
-    // Conservative tie-breakers: only recognized task descriptions get a
-    // demand signal; unknown drills retain their original selection order.
-    if (/form shooting|one.hand|one hand/.test(descriptor)) return 0;
-    if (/free.throw|free throw/.test(descriptor)) return 1;
-    if (/catch.and.shoot|catch and shoot|off the pass/.test(descriptor)) return 2;
-    if (/stationary|without movement|on the spot/.test(descriptor)) return 0;
-    if (/moving|on the move|with movement/.test(descriptor)) return 1;
-    if (/pressure|defender|live|competitive|game.speed/.test(descriptor)) return 2;
-    return 1;
-  };
   for (const block of mainBlocks) {
     const firstModuleIndex = new Map<string, number>();
     block.forEach((drill, index) => {
@@ -682,8 +668,7 @@ export function generatePractice(ctx: HistoryAwareGeneratorContext): Practice {
     block.sort((a, b) =>
       (firstModuleIndex.get(resolvePracticeModuleCode(a)) ?? 0) -
         (firstModuleIndex.get(resolvePracticeModuleCode(b)) ?? 0) ||
-      a.level - b.level ||
-      executionDemand(a) - executionDemand(b)
+      compareDrillExecutionProgression(a, b)
     );
   }
   const mainPhase: Phase = 'Technical Skill Development';
