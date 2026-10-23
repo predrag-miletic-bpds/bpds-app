@@ -3,9 +3,9 @@ import { DRILLS } from '../bpds-coach-dashboard-hero-responsive-v1/bpds-methodol
 import { compareDrillExecutionProgression, progressionEvidence } from '../bpds-coach-dashboard-hero-responsive-v1/bpds-methodology/practice-generator/drill-progression-matrix-v2';
 
 const byId = new Map(DRILLS.map((d) => [d.id, d]));
-const form = DRILLS.find((d) => /form shooting.*one.hand/i.test(d.name));
-const free = DRILLS.find((d) => /pressure free.throw/i.test(d.name));
-const catchShoot = DRILLS.find((d) => /catch.and.shoot.*pass/i.test(d.name));
+const form = byId.get('sh-l1-001');
+const free = byId.get('sh-ft-001');
+const catchShoot = byId.get('sh-l2-003');
 assert.ok(form && free && catchShoot, 'The approved shooting trio must exist in the active catalog');
 assert.equal(form.moduleCode, free.moduleCode);
 assert.equal(free.moduleCode, catchShoot.moduleCode);
