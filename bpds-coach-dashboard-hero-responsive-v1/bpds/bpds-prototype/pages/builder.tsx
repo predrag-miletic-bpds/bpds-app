@@ -35,7 +35,8 @@ export function Builder() {
 
   const results = useMemo(() => DRILLS.filter((d) => {
     if (q && !`${d.code} ${d.name} ${d.tags.join(' ')}`.toLowerCase().includes(q.toLowerCase())) return false;
-    if (moduleCode && d.moduleCode !== moduleCode) return false;
+    if (moduleCode === 'ATHLETIC' && !(d.moduleCode === 'WUP' && d.code.startsWith('WUP-ATH-'))) return false;
+    if (moduleCode && moduleCode !== 'ATHLETIC' && d.moduleCode !== moduleCode) return false;
     if (level && d.level !== Number(level)) return false;
     return true;
   }).slice(0, 40), [q, moduleCode, level]);
@@ -143,6 +144,7 @@ export function Builder() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: 10 }}>
                 <Select value={moduleCode} onChange={(e) => setModuleCode(e.target.value)}>
                   <option value="">All modules</option>
+                  <option value="ATHLETIC">Athletic Development</option>
                   {AREAS.map((area) => (
                     <optgroup key={area} label={area}>
                       {MODULES.filter((m) => m.area === area).map((m) => <option key={m.code} value={m.code}>{m.name}</option>)}
