@@ -655,21 +655,26 @@ export function generatePractice(ctx: HistoryAwareGeneratorContext): Practice {
     block.push(drill);
     mainSpent += drill.duration;
   }
-  // Selection priority and execution order are distinct. Keep the selected
-  // drills and locked doses, but progress within each Main Development block
-  // from lower to higher level, then from lower to higher execution demand.
-  // Preserve first-seen module order so the coach's primary focus remains first.
-  for (const block of mainBlocks) {
-    const firstModuleIndex = new Map<string, number>();
-    block.forEach((drill, index) => {
-      const moduleCode = resolvePracticeModuleCode(drill);
-      if (!firstModuleIndex.has(moduleCode)) firstModuleIndex.set(moduleCode, index);
-    });
-    block.sort((a, b) =>
-      (firstModuleIndex.get(resolvePracticeModuleCode(a)) ?? 0) -
-        (firstModuleIndex.get(resolvePracticeModuleCode(b)) ?? 0) ||
-      compareDrillExecutionProgression(a, b)
-    );
+  // Coach Progression V2: preserve the exact selected drill set and locked
+  // durations, but order each module progressively ACROSS block boundaries.
+  // First-seen module priority is retained; blocks are reconstructed in groups
+  // of three after ordering so breaks remain distinct scheduled boundaries.
+  const selectedMain = mainBlocks.flat();
+  const moduleFirstSeen = new Map<string, number>();
+  selectedMain.forEach((drill, index) => {
+    const code = resolvePracticeModuleCode(drill);
+    if (!moduleFirstSeen.has(code)) moduleFirstSeen.set(code, index);
+  });
+  const originalSelectionIndex = new Map(selectedMain.map((drill, index) => [drill.id, index]));
+  selectedMain.sort((a, b) =>
+    (moduleFirstSeen.get(resolvePracticeModuleCode(a)) ?? 0) -
+      (moduleFirstSeen.get(resolvePracticeModuleCode(b)) ?? 0) ||
+    compareDrillExecutionProgression(a, b) ||
+    (originalSelectionIndex.get(a.id) ?? 0) - (originalSelectionIndex.get(b.id) ?? 0)
+  );
+  mainBlocks.length = 0;
+  for (let index = 0; index < selectedMain.length; index += 3) {
+    mainBlocks.push(selectedMain.slice(index, index + 3));
   }
   const mainPhase: Phase = 'Technical Skill Development';
   mainBlocks.flat().forEach((drill) => add(drill, drill.duration, mainPhase));
