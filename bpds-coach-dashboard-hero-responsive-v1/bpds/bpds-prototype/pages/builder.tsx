@@ -144,10 +144,10 @@ export function Builder() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: 10 }}>
                 <Select value={moduleCode} onChange={(e) => setModuleCode(e.target.value)}>
                   <option value="">All modules</option>
-                  <option value="ATHLETIC">Athletic Development</option>
                   {AREAS.map((area) => (
                     <optgroup key={area} label={area}>
                       {MODULES.filter((m) => m.area === area).map((m) => <option key={m.code} value={m.code}>{m.name}</option>)}
+                      {area === 'Training Preparation' && <option value="ATHLETIC">Athletic Development</option>}
                     </optgroup>
                   ))}
                 </Select>
