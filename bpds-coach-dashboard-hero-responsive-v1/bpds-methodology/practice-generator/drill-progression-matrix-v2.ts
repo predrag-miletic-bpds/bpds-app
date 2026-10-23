@@ -28,18 +28,13 @@ const movementOrder: Record<string, number> = { Stationary: 0, Moving: 1 };
  */
 const approvedSequence: Record<string, number> = {
   'sh-l1-001': 10, // Form Shooting / One Hand
+  'sh-ft-001': 20, // Pressure Free Throws
+  'sh-l2-003': 30, // Catch and Shoot off the Pass
 };
 export function progressionEvidence(drill: Drill): ProgressionEvidence {
   const meta = normalizeDrillGeneratorMetadata(drill);
   const stageIndex = PROGRESSION_STAGE_ORDER.indexOf(meta.progressionStage);
-  const name = drill.name.toLowerCase();
-  const shootingRank = drill.moduleCode === 'SH'
-    ? /form shooting|one.hand|one hand/.test(name) ? 10
-      : /pressure free.throw|pressure free throw/.test(name) ? 20
-      : /catch.and.shoot|catch and shoot/.test(name) ? 30
-      : null
-    : null;
-  const manualRank = shootingRank ?? approvedSequence[drill.id] ?? null;
+  const manualRank = approvedSequence[drill.id] ?? null;
   const movement = movementOrder[meta.movementMode] ?? null;
   const cognitive = cognitiveOrder[meta.cognitiveLoad] ?? null;
   const intensity = intensityOrder[drill.intensity] ?? null;
