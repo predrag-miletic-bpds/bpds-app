@@ -1051,7 +1051,7 @@ export const COURT_SIZES = ['Small indoor space', 'Half court', 'Full court', 'O
 
 /** Training focus options offered by the generator. */
 export const FOCUS_OPTIONS = [
-  'Complete Player Development', 'Ball Mastery', 'Ball Handling', 'Change of Direction',
+  'Complete Player Development', 'Athletic Development', 'Ball Mastery', 'Ball Handling', 'Change of Direction',
   'Combination Moves', 'Footwork', 'Finishing', 'Passing', 'Shooting', 'Triple Threat',
   'Defense', 'Rebounding', 'Spacing', 'Off-Ball Movement', 'Pick and Roll', 'Transition',
   'Decision Making', 'Advantage Basketball', 'Small-Sided Games',
@@ -1060,6 +1060,9 @@ export const FOCUS_OPTIONS = [
 /** Maps a coach-facing focus label to the BPDS module codes it covers. */
 export const FOCUS_TO_MODULES: Record<string, string[]> = {
   'Complete Player Development': ['BM', 'SBH', 'MBH', 'COD', 'FW', 'FIN', 'PAS', 'SH', 'TT', 'ATT', 'DFW', 'REB', 'ADV', 'SSG'],
+  // Athletic Development is handled by the explicit, coach-opt-in WUP-ATH
+  // candidate path in Coach V1.2; it is not a general WUP module match.
+  'Athletic Development': [],
   'Ball Mastery': ['BM', 'SBH'],
   'Ball Handling': ['BM', 'SBH', 'MBH', 'COD'],
   'Change of Direction': ['COD', 'MBH'],
