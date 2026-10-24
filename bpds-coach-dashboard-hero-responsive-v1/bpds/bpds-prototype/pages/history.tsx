@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/store.js';
 import { Badge, Button, Card, Empty, Page, PageHead, SectionTitle } from '../ui/ui.js';
@@ -6,8 +5,12 @@ import { Badge, Button, Card, Empty, Page, PageHead, SectionTitle } from '../ui/
 /** Training history — completed sessions across players and teams. */
 export function History() {
   const navigate = useNavigate();
-  const { history, players, teams, deleteHistoryEntry } = useStore();
-  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const { history, players, teams } = useStore();
+  // Most recently completed sessions appear first; stable ordering for ties.
+  const sortedHistory = [...history].sort((a, b) => {
+    const byDate = Date.parse(b.date) - Date.parse(a.date);
+    return Number.isFinite(byDate) && byDate !== 0 ? byDate : b.id.localeCompare(a.id);
+  });
   const totalMinutes = history.reduce((a, h) => a + h.duration, 0);
   const totalDrills = history.reduce((a, h) => a + h.completedDrills, 0);
 
@@ -43,7 +46,7 @@ export function History() {
 
       {history.length === 0 ? <Empty>No completed sessions yet. Run a practice in Practice Mode.</Empty> : (
         <div style={{ display: 'grid', gap: 12 }}>
-          {history.map((h) => {
+          {sortedHistory.map((h) => {
             const team = teams.find((t) => t.id === h.teamId);
             const names = h.playerIds.map((id) => players.find((p) => p.id === id)?.fullName).filter(Boolean);
             const pct = Math.round((h.completedDrills / Math.max(1, h.totalDrills)) * 100);
@@ -71,17 +74,7 @@ export function History() {
                   </div>
           <div style={{ minWidth: 120 }}>
             {h.practiceId ? <Button size='sm' full variant='primary' onClick={() => navigate(`/practice/${h.practiceId}`)}>View</Button> : null}
-            {confirmingId === h.id ? (
-              <div style={{ display: 'grid', gap: 7 }}>
-                <div style={{ fontSize: 12, fontWeight: 750, color: 'var(--bpds-slate)' }}>Delete this entry?</div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <Button size='sm' variant='secondary' onClick={() => setConfirmingId(null)}>Cancel</Button>
-                  <Button size='sm' variant='danger' onClick={() => { deleteHistoryEntry(h.id); setConfirmingId(null); }}>Delete</Button>
-                </div>
-              </div>
-            ) : (
-              <Button size='sm' full variant='danger' onClick={() => setConfirmingId(h.id)}>Delete</Button>
-            )}
+
           </div>
                 </div>
               </Card>
