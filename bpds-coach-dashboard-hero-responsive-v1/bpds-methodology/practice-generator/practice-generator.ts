@@ -663,17 +663,47 @@ export function generatePractice(ctx: HistoryAwareGeneratorContext): Practice {
   const targetMain = Math.max(0, ctx.duration - foundationTarget - reservedBreakMinutes - gameMinutes);
   let mainSpent = 0;
   const mainBlocks: Drill[][] = [];
-  for (const drill of mainSorted) {
-    if (mainSpent + drill.duration > targetMain || used.has(drill.id)) continue;
-    let block = mainBlocks[mainBlocks.length - 1];
-    if (!block || block.length >= 3) {
-      if (mainBlocks.length >= 4) break;
-      block = [];
-      mainBlocks.push(block);
-    }
-    block.push(drill);
+  const selectedMainIds = new Set<string>();
+  const maxMainDrills = 12;
+  const chosenMain: Drill[] = [];
+  const addMainCandidate = (drill: Drill): boolean => {
+    if (chosenMain.length >= maxMainDrills || mainSpent + drill.duration > targetMain ||
+        used.has(drill.id) || selectedMainIds.has(drill.id)) return false;
+    chosenMain.push(drill);
+    selectedMainIds.add(drill.id);
     mainSpent += drill.duration;
+    return true;
+  };
+  // Focus coverage is a hard selection requirement, not merely a score bonus.
+  // Select from the actual coach-requested module codes before any general
+  // fallback; this prevents unrelated passing/attacking drills from crowding
+  // out COD + Defense in a 90-minute U12 practice.
+  const primaryCandidates = mainSorted.filter((drill) => primaryCodes.has(drill.moduleCode));
+  const secondaryCandidates = mainSorted.filter((drill) => secondaryCodes.has(drill.moduleCode));
+  const hasPrimaryFocus = primaryCodes.size > 0;
+  const hasSecondaryFocus = secondaryCodes.size > 0 && ctx.secondaryFocus !== ctx.primaryFocus;
+  if (athleticRequested) selectedAthletic.forEach(addMainCandidate);
+  const primaryTarget = hasPrimaryFocus ? Math.min(6, Math.max(2, Math.ceil(maxMainDrills * 0.5))) : 0;
+  const secondaryTarget = hasSecondaryFocus ? Math.min(4, Math.max(2, Math.ceil(maxMainDrills * 0.3))) : 0;
+  primaryCandidates.slice(0).forEach((drill) => {
+    if (chosenMain.filter((chosen) => primaryCodes.has(chosen.moduleCode)).length < primaryTarget)
+      addMainCandidate(drill);
+  });
+  secondaryCandidates.forEach((drill) => {
+    if (chosenMain.filter((chosen) => secondaryCodes.has(chosen.moduleCode)).length < secondaryTarget)
+      addMainCandidate(drill);
+  });
+  // Prefer remaining drills from selected focus modules. Unrelated drills are
+  // only a last resort when eligible focus drills cannot fill the available time.
+  for (const drill of mainSorted.filter((candidate) =>
+    primaryCodes.has(candidate.moduleCode) || secondaryCodes.has(candidate.moduleCode))) {
+    addMainCandidate(drill);
   }
+  if (!hasPrimaryFocus && !hasSecondaryFocus && !athleticRequested) {
+    for (const drill of mainSorted) addMainCandidate(drill);
+  }
+  for (let index = 0; index < chosenMain.length; index += 3)
+    mainBlocks.push(chosenMain.slice(index, index + 3));
   // Coach Progression V2: preserve the exact selected drill set and locked
   // durations, but order each module progressively ACROSS block boundaries.
   // First-seen module priority is retained; blocks are reconstructed in groups
